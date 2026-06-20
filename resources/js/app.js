@@ -1,36 +1,41 @@
-import { createApp, computed, onMounted, ref } from 'vue/dist/vue.esm-bundler.js';
-import FullCalendar from '@fullcalendar/vue3';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import {
+    createApp,
+    computed,
+    onMounted,
+    ref,
+} from "vue/dist/vue.esm-bundler.js";
+import FullCalendar from "@fullcalendar/vue3";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 
 const csrf = document.querySelector('meta[name="csrf-token"]').content;
 const weekdays = [
-    ['Lunedi', 1],
-    ['Martedi', 2],
-    ['Mercoledi', 3],
-    ['Giovedi', 4],
-    ['Venerdi', 5],
-    ['Sabato', 6],
-    ['Domenica', 7],
+    ["Lunedi", 1],
+    ["Martedi", 2],
+    ["Mercoledi", 3],
+    ["Giovedi", 4],
+    ["Venerdi", 5],
+    ["Sabato", 6],
+    ["Domenica", 7],
 ];
 
 function blankTask(projects = []) {
     return {
         id: null,
-        project_id: projects[0]?.id ?? '',
-        title: '',
-        description: '',
+        project_id: projects[0]?.id ?? "",
+        title: "",
+        description: "",
         duration_minutes: 60,
         priority: 3,
-        deadline: '',
+        deadline: "",
         is_max_priority: false,
-        status: 'open',
+        status: "open",
     };
 }
 
 function blankProject() {
-    return { id: null, name: '', color: '#6750a4', priority: 3, deadline: '' };
+    return { id: null, name: "", color: "#6750a4", priority: 3, deadline: "" };
 }
 
 function today() {
@@ -49,7 +54,7 @@ createApp({
     setup() {
         const loading = ref(true);
         const saving = ref(false);
-        const error = ref('');
+        const error = ref("");
         const data = ref({
             user: null,
             projects: [],
@@ -60,79 +65,95 @@ createApp({
             events: [],
             unscheduledTasks: [],
         });
-        const activePanel = ref('overview');
+        const activePanel = ref("overview");
         const modal = ref(null);
         const taskForm = ref(blankTask());
         const projectForm = ref(blankProject());
         const busyForm = ref({
-            title: '',
+            title: "",
             start_at: toDateTimeLocal(),
             end_at: toDateTimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
         });
         const overrideDate = ref(today());
-        const overrideRows = ref([{ start_time: '09:00', end_time: '18:00' }]);
+        const overrideRows = ref([{ start_time: "09:00", end_time: "18:00" }]);
         const scheduleDays = ref([]);
         const selectedCalendarEvent = ref(null);
 
         const calendarOptions = computed(() => ({
             plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-            initialView: 'timeGridWeek',
+            initialView: "timeGridWeek",
             headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'timeGridDay,timeGridWeek,dayGridMonth',
+                left: "prev,next today",
+                center: "title",
+                right: "timeGridDay,timeGridWeek,dayGridMonth",
             },
-            locale: 'it',
+            locale: "it",
             firstDay: 1,
             nowIndicator: true,
             selectable: true,
             allDaySlot: false,
-            height: 'auto',
-            slotMinTime: '06:00:00',
-            slotMaxTime: '22:00:00',
-            eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+            height: "auto",
+            slotMinTime: "09:30:00",
+            slotMaxTime: "23:30:00",
+            eventTimeFormat: {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+            },
             events: data.value.events,
             eventClick(info) {
                 openCalendarEvent(info.event);
             },
             dateClick(info) {
-                activePanel.value = 'day';
+                activePanel.value = "day";
                 overrideDate.value = info.dateStr.slice(0, 10);
                 hydrateOverrideRows();
             },
             select(info) {
                 busyForm.value = {
-                    title: 'Blocco occupato',
+                    title: "Blocco occupato",
                     start_at: info.startStr.slice(0, 16),
                     end_at: info.endStr.slice(0, 16),
                 };
-                modal.value = 'busy';
+                modal.value = "busy";
             },
         }));
 
-        const openTasks = computed(() => data.value.tasks.filter((task) => task.status === 'open'));
-        const doneTasks = computed(() => data.value.tasks.filter((task) => task.status === 'done'));
-        const maxPriorityTasks = computed(() => openTasks.value.filter((task) => task.is_max_priority));
-        const projectMap = computed(() => Object.fromEntries(data.value.projects.map((project) => [project.id, project])));
+        const openTasks = computed(() =>
+            data.value.tasks.filter((task) => task.status === "open"),
+        );
+        const doneTasks = computed(() =>
+            data.value.tasks.filter((task) => task.status === "done"),
+        );
+        const maxPriorityTasks = computed(() =>
+            openTasks.value.filter((task) => task.is_max_priority),
+        );
+        const projectMap = computed(() =>
+            Object.fromEntries(
+                data.value.projects.map((project) => [project.id, project]),
+            ),
+        );
 
         async function api(url, options = {}) {
             saving.value = true;
-            error.value = '';
+            error.value = "";
 
             try {
                 const response = await fetch(url, {
                     headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': csrf,
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": csrf,
                     },
-                    credentials: 'same-origin',
+                    credentials: "same-origin",
                     ...options,
                 });
 
                 if (!response.ok) {
                     const payload = await response.json().catch(() => ({}));
-                    throw new Error(payload.message || 'Operazione non riuscita.');
+                    throw new Error(
+                        payload.message || "Operazione non riuscita.",
+                    );
                 }
 
                 const payload = await response.json();
@@ -152,14 +173,16 @@ createApp({
 
         function hydrateScheduleDays() {
             scheduleDays.value = weekdays.map(([label, weekday]) => {
-                const row = data.value.workSchedules.find((item) => item.weekday === weekday);
+                const row = data.value.workSchedules.find(
+                    (item) => item.weekday === weekday,
+                );
 
                 return {
                     label,
                     weekday,
                     enabled: Boolean(row),
-                    start_time: row?.start_time?.slice(0, 5) || '09:00',
-                    end_time: row?.end_time?.slice(0, 5) || '18:00',
+                    start_time: row?.start_time?.slice(0, 5) || "09:00",
+                    end_time: row?.end_time?.slice(0, 5) || "18:00",
                 };
             });
         }
@@ -172,50 +195,69 @@ createApp({
                     end_time: row.end_time.slice(0, 5),
                 }));
 
-            overrideRows.value = rows.length ? rows : [{ start_time: '09:00', end_time: '18:00' }];
+            overrideRows.value = rows.length
+                ? rows
+                : [{ start_time: "09:00", end_time: "18:00" }];
         }
 
         function openTask(task = null) {
             taskForm.value = task
                 ? {
-                    ...task,
-                    deadline: task.deadline ? task.deadline.slice(0, 10) : '',
-                    is_max_priority: Boolean(task.is_max_priority),
-                }
+                      ...task,
+                      deadline: task.deadline ? task.deadline.slice(0, 10) : "",
+                      is_max_priority: Boolean(task.is_max_priority),
+                  }
                 : blankTask(data.value.projects);
-            modal.value = 'task';
+            modal.value = "task";
         }
 
         function openProject(project = null) {
             projectForm.value = project
-                ? { ...project, deadline: project.deadline ? project.deadline.slice(0, 10) : '' }
+                ? {
+                      ...project,
+                      deadline: project.deadline
+                          ? project.deadline.slice(0, 10)
+                          : "",
+                  }
                 : blankProject();
-            modal.value = 'project';
+            modal.value = "project";
         }
 
         function openBusyBlock(block = null) {
             busyForm.value = block
                 ? {
-                    ...block,
-                    start_at: block.start_at ? block.start_at.slice(0, 16) : toDateTimeLocal(),
-                    end_at: block.end_at ? block.end_at.slice(0, 16) : toDateTimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
-                }
+                      ...block,
+                      start_at: block.start_at
+                          ? block.start_at.slice(0, 16)
+                          : toDateTimeLocal(),
+                      end_at: block.end_at
+                          ? block.end_at.slice(0, 16)
+                          : toDateTimeLocal(
+                                new Date(Date.now() + 60 * 60 * 1000),
+                            ),
+                  }
                 : {
-                    title: '',
-                    start_at: toDateTimeLocal(),
-                    end_at: toDateTimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
-                };
-            modal.value = 'busy';
+                      title: "",
+                      start_at: toDateTimeLocal(),
+                      end_at: toDateTimeLocal(
+                          new Date(Date.now() + 60 * 60 * 1000),
+                      ),
+                  };
+            modal.value = "busy";
         }
 
         function openCalendarEvent(event) {
             const props = event.extendedProps || {};
-            const task = props.type === 'task'
-                ? data.value.tasks.find((item) => item.id === props.task_id)
-                : null;
-            const busy = props.type === 'busy'
-                ? data.value.busyBlocks.find((item) => item.id === props.busy_id)
-                : null;
+            const task =
+                props.type === "task"
+                    ? data.value.tasks.find((item) => item.id === props.task_id)
+                    : null;
+            const busy =
+                props.type === "busy"
+                    ? data.value.busyBlocks.find(
+                          (item) => item.id === props.busy_id,
+                      )
+                    : null;
 
             selectedCalendarEvent.value = {
                 id: event.id,
@@ -227,7 +269,7 @@ createApp({
                 task,
                 busy,
             };
-            modal.value = 'eventDetails';
+            modal.value = "eventDetails";
         }
 
         async function saveTask() {
@@ -239,8 +281,10 @@ createApp({
                 deadline: taskForm.value.deadline || null,
                 is_max_priority: Boolean(taskForm.value.is_max_priority),
             };
-            const url = payload.id ? `/planner-api/tasks/${payload.id}` : '/planner-api/tasks';
-            const method = payload.id ? 'PUT' : 'POST';
+            const url = payload.id
+                ? `/planner-api/tasks/${payload.id}`
+                : "/planner-api/tasks";
+            const method = payload.id ? "PUT" : "POST";
 
             await api(url, { method, body: JSON.stringify(payload) });
             modal.value = null;
@@ -252,16 +296,20 @@ createApp({
                 priority: Number(projectForm.value.priority),
                 deadline: projectForm.value.deadline || null,
             };
-            const url = payload.id ? `/planner-api/projects/${payload.id}` : '/planner-api/projects';
-            const method = payload.id ? 'PUT' : 'POST';
+            const url = payload.id
+                ? `/planner-api/projects/${payload.id}`
+                : "/planner-api/projects";
+            const method = payload.id ? "PUT" : "POST";
 
             await api(url, { method, body: JSON.stringify(payload) });
             modal.value = null;
         }
 
         async function saveBusyBlock() {
-            const url = busyForm.value.id ? `/planner-api/busy-blocks/${busyForm.value.id}` : '/planner-api/busy-blocks';
-            const method = busyForm.value.id ? 'PUT' : 'POST';
+            const url = busyForm.value.id
+                ? `/planner-api/busy-blocks/${busyForm.value.id}`
+                : "/planner-api/busy-blocks";
+            const method = busyForm.value.id ? "PUT" : "POST";
 
             await api(url, {
                 method,
@@ -271,25 +319,28 @@ createApp({
         }
 
         async function saveSchedules() {
-            await api('/planner-api/work-schedules', {
-                method: 'POST',
+            await api("/planner-api/work-schedules", {
+                method: "POST",
                 body: JSON.stringify({ days: scheduleDays.value }),
             });
         }
 
         async function saveOverride() {
-            await api('/planner-api/date-overrides', {
-                method: 'POST',
-                body: JSON.stringify({ date: overrideDate.value, rows: overrideRows.value }),
+            await api("/planner-api/date-overrides", {
+                method: "POST",
+                body: JSON.stringify({
+                    date: overrideDate.value,
+                    rows: overrideRows.value,
+                }),
             });
         }
 
         async function destroy(url) {
-            if (!confirm('Confermi eliminazione?')) {
+            if (!confirm("Confermi eliminazione?")) {
                 return false;
             }
 
-            await api(url, { method: 'DELETE' });
+            await api(url, { method: "DELETE" });
 
             return true;
         }
@@ -300,12 +351,22 @@ createApp({
             }
 
             let deleted = false;
-            if (selectedCalendarEvent.value.type === 'task' && selectedCalendarEvent.value.task) {
-                deleted = await destroy(`/planner-api/tasks/${selectedCalendarEvent.value.task.id}`);
+            if (
+                selectedCalendarEvent.value.type === "task" &&
+                selectedCalendarEvent.value.task
+            ) {
+                deleted = await destroy(
+                    `/planner-api/tasks/${selectedCalendarEvent.value.task.id}`,
+                );
             }
 
-            if (selectedCalendarEvent.value.type === 'busy' && selectedCalendarEvent.value.busy) {
-                deleted = await destroy(`/planner-api/busy-blocks/${selectedCalendarEvent.value.busy.id}`);
+            if (
+                selectedCalendarEvent.value.type === "busy" &&
+                selectedCalendarEvent.value.busy
+            ) {
+                deleted = await destroy(
+                    `/planner-api/busy-blocks/${selectedCalendarEvent.value.busy.id}`,
+                );
             }
 
             if (deleted) {
@@ -319,24 +380,35 @@ createApp({
                 return;
             }
 
-            if (selectedCalendarEvent.value.type === 'task' && selectedCalendarEvent.value.task) {
+            if (
+                selectedCalendarEvent.value.type === "task" &&
+                selectedCalendarEvent.value.task
+            ) {
                 openTask(selectedCalendarEvent.value.task);
             }
 
-            if (selectedCalendarEvent.value.type === 'busy' && selectedCalendarEvent.value.busy) {
+            if (
+                selectedCalendarEvent.value.type === "busy" &&
+                selectedCalendarEvent.value.busy
+            ) {
                 openBusyBlock(selectedCalendarEvent.value.busy);
             }
         }
 
         async function recalculate() {
-            await api('/planner-api/recalculate', { method: 'POST', body: '{}' });
+            await api("/planner-api/recalculate", {
+                method: "POST",
+                body: "{}",
+            });
         }
 
         function durationLabel(minutes) {
             const hours = Math.floor(minutes / 60);
             const rest = minutes % 60;
 
-            return [hours ? `${hours}h` : '', rest ? `${rest}m` : ''].filter(Boolean).join(' ');
+            return [hours ? `${hours}h` : "", rest ? `${rest}m` : ""]
+                .filter(Boolean)
+                .join(" ");
         }
 
         function projectFor(task) {
@@ -345,19 +417,19 @@ createApp({
 
         function formatDateTime(value) {
             if (!value) {
-                return '-';
+                return "-";
             }
 
-            return new Intl.DateTimeFormat('it-IT', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
+            return new Intl.DateTimeFormat("it-IT", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
             }).format(new Date(value));
         }
 
-        onMounted(() => api('/planner-api/bootstrap', { method: 'GET' }));
+        onMounted(() => api("/planner-api/bootstrap", { method: "GET" }));
 
         return {
             activePanel,
@@ -640,4 +712,4 @@ createApp({
             </div>
         </div>
     `,
-}).mount('#app');
+}).mount("#app");
