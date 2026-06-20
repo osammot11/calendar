@@ -78,6 +78,7 @@ createApp({
         const overrideRows = ref([{ start_time: "09:00", end_time: "18:00" }]);
         const scheduleDays = ref([]);
         const selectedCalendarEvent = ref(null);
+        const selectedProjectId = ref(null);
 
         const calendarOptions = computed(() => ({
             plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -132,6 +133,27 @@ createApp({
             Object.fromEntries(
                 data.value.projects.map((project) => [project.id, project]),
             ),
+        );
+        const selectedProject = computed(() =>
+            data.value.projects.find(
+                (project) => project.id === selectedProjectId.value,
+            ),
+        );
+        const selectedProjectTasks = computed(() =>
+            [...data.value.tasks]
+                .filter((task) => task.project_id === selectedProjectId.value)
+                .sort((a, b) => {
+                    const deadlineA = a.deadline || "9999-12-31";
+                    const deadlineB = b.deadline || "9999-12-31";
+
+                    return (
+                        Number(b.is_max_priority) -
+                            Number(a.is_max_priority) ||
+                        b.priority - a.priority ||
+                        deadlineA.localeCompare(deadlineB) ||
+                        a.title.localeCompare(b.title)
+                    );
+                }),
         );
 
         async function api(url, options = {}) {
@@ -221,6 +243,11 @@ createApp({
                   }
                 : blankProject();
             modal.value = "project";
+        }
+
+        function openProjectDetail(project) {
+            selectedProjectId.value = project.id;
+            activePanel.value = "projectDetail";
         }
 
         function openBusyBlock(block = null) {
@@ -429,6 +456,54 @@ createApp({
             }).format(new Date(value));
         }
 
+        function formatDate(value) {
+            if (!value) {
+                return "-";
+            }
+
+            return new Intl.DateTimeFormat("it-IT", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+            }).format(new Date(value));
+        }
+
+        function taskSchedule(task) {
+            const event = [...data.value.events]
+                .filter(
+                    (item) =>
+                        item.extendedProps?.type === "task" &&
+                        item.extendedProps?.task_id === task.id,
+                )
+                .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
+
+            if (!event) {
+                return null;
+            }
+
+            return {
+                start: event.start,
+                end: event.end,
+                label: new Intl.DateTimeFormat("it-IT", {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }).format(new Date(event.start)),
+                range: `${new Intl.DateTimeFormat("it-IT", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }).format(new Date(event.start))} - ${new Intl.DateTimeFormat(
+                    "it-IT",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    },
+                ).format(new Date(event.end))}`,
+            };
+        }
+
         onMounted(() => api("/planner-api/bootstrap", { method: "GET" }));
 
         return {
@@ -441,12 +516,14 @@ createApp({
             durationLabel,
             editSelectedEvent,
             error,
+            formatDate,
             formatDateTime,
             loading,
             maxPriorityTasks,
             modal,
             openBusyBlock,
             openProject,
+            openProjectDetail,
             openTask,
             openTasks,
             overrideDate,
@@ -462,7 +539,10 @@ createApp({
             saving,
             scheduleDays,
             selectedCalendarEvent,
+            selectedProject,
+            selectedProjectTasks,
             taskForm,
+            taskSchedule,
             destroy,
         };
     },
@@ -476,7 +556,7 @@ createApp({
             <aside class="nav-rail surface">
                 <div class="brand-mark">C</div>
                 <button class="icon-button" :class="{ active: activePanel === 'overview' }" @click="activePanel = 'overview'" title="Dashboard">D</button>
-                <button class="icon-button" :class="{ active: activePanel === 'projects' }" @click="activePanel = 'projects'" title="Progetti">P</button>
+                <button class="icon-button" :class="{ active: activePanel === 'projects' || activePanel === 'projectDetail' }" @click="activePanel = 'projects'" title="Progetti">P</button>
                 <button class="icon-button" :class="{ active: activePanel === 'settings' }" @click="activePanel = 'settings'" title="Impostazioni">I</button>
             </aside>
 
@@ -497,7 +577,46 @@ createApp({
 
                 <div v-if="error" class="snackbar">{{ error }}</div>
 
-                <section class="dashboard-grid">
+                <section v-if="activePanel === 'projectDetail' && selectedProject" class="project-detail-page surface">
+                    <div class="project-detail-header">
+                        <button class="button tonal" @click="activePanel = 'projects'">Indietro</button>
+                        <div>
+                            <p class="eyebrow">Progetto</p>
+                            <h2>{{ selectedProject.name }}</h2>
+                            <small>Priorita {{ selectedProject.priority }}<span v-if="selectedProject.deadline"> · deadline {{ formatDate(selectedProject.deadline) }}</span></small>
+                        </div>
+                        <span class="project-dot detail-dot" :style="{ background: selectedProject.color }"></span>
+                    </div>
+
+                    <div class="project-task-list">
+                        <article v-for="task in selectedProjectTasks" :key="task.id" class="project-task-row">
+                            <div class="project-task-main">
+                                <div class="project-task-title">
+                                    <strong>{{ task.title }}</strong>
+                                    <span v-if="task.is_max_priority" class="chip alert-chip">Massima</span>
+                                    <span class="chip">{{ task.status === 'done' ? 'Completata' : 'Aperta' }}</span>
+                                </div>
+                                <small>{{ durationLabel(task.duration_minutes) }} · priorita {{ task.priority }}/5<span v-if="task.deadline"> · deadline {{ formatDate(task.deadline) }}</span></small>
+                                <p v-if="task.description">{{ task.description }}</p>
+                            </div>
+                            <div class="project-task-schedule">
+                                <template v-if="taskSchedule(task)">
+                                    <span>In lavorazione</span>
+                                    <strong>{{ taskSchedule(task).label }}</strong>
+                                    <small>{{ taskSchedule(task).range }}</small>
+                                </template>
+                                <template v-else>
+                                    <span>Scheduling</span>
+                                    <strong>Fuori piano</strong>
+                                    <small>Nessuno slot continuo disponibile</small>
+                                </template>
+                            </div>
+                            <button class="button text" @click="openTask(task)">Modifica</button>
+                        </article>
+                    </div>
+                </section>
+
+                <section v-else class="dashboard-grid">
                     <div class="calendar-panel surface">
                         <FullCalendar :options="calendarOptions" />
                     </div>
@@ -544,7 +663,7 @@ createApp({
                                 <div class="project-line">
                                     <span class="project-dot large" :style="{ background: project.color }"></span>
                                     <div>
-                                        <strong>{{ project.name }}</strong>
+                                        <button class="project-name-button" @click="openProjectDetail(project)">{{ project.name }}</button>
                                         <small>Priorita {{ project.priority }}<span v-if="project.deadline"> · deadline {{ project.deadline }}</span></small>
                                     </div>
                                 </div>

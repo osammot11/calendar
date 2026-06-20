@@ -402,6 +402,105 @@ p {
     margin-top: 12px;
 }
 
+.project-name-button {
+    border: 0;
+    background: transparent;
+    color: var(--md-on-surface);
+    font: inherit;
+    font-weight: 900;
+    padding: 0;
+    text-align: left;
+}
+
+.project-name-button:hover {
+    color: var(--md-primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.project-detail-page {
+    display: grid;
+    gap: 18px;
+    border-radius: var(--radius-lg);
+    padding: 22px;
+}
+
+.project-detail-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--md-outline-variant);
+    padding-bottom: 18px;
+}
+
+.project-detail-header h2 {
+    font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.project-detail-header small,
+.project-task-row small,
+.project-task-row p,
+.project-task-schedule span {
+    color: var(--md-on-surface-variant);
+}
+
+.detail-dot {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+}
+
+.project-task-list {
+    display: grid;
+    gap: 12px;
+}
+
+.project-task-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) auto;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid var(--md-outline-variant);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.5);
+    padding: 14px;
+}
+
+.project-task-main,
+.project-task-schedule {
+    display: grid;
+    gap: 5px;
+}
+
+.project-task-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.project-task-title strong {
+    font-size: 1.02rem;
+}
+
+.project-task-row p {
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+.project-task-schedule {
+    border-radius: var(--radius-md);
+    background: var(--md-surface-container);
+    padding: 12px;
+}
+
+.project-task-schedule span {
+    font-size: 0.76rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
 .row-actions {
     justify-content: flex-end;
 }
@@ -615,6 +714,8 @@ td {
     .form-grid,
     .detail-list,
     .metrics,
+    .project-detail-header,
+    .project-task-row,
     .schedule-row {
         grid-template-columns: 1fr;
     }
