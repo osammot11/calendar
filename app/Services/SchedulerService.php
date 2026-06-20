@@ -26,34 +26,23 @@ class SchedulerService
             return;
         }
 
-        $remaining = $tasks->mapWithKeys(fn (Task $task) => [
-            $task->id => $this->roundToSlot($task->duration_minutes),
-        ]);
+        $scheduledTaskIds = collect();
 
         $weeks = self::MIN_WEEKS;
 
-        while ($remaining->filter()->isNotEmpty() && $weeks <= self::MAX_WEEKS) {
+        while ($scheduledTaskIds->count() < $tasks->count() && $weeks <= self::MAX_WEEKS) {
             ScheduledBlock::query()->delete();
-            $remaining = $tasks->mapWithKeys(fn (Task $task) => [
-                $task->id => $this->roundToSlot($task->duration_minutes),
-            ]);
+            $scheduledTaskIds = collect();
 
             foreach ($this->availableSlots($weeks) as $slot) {
                 foreach ($tasks as $task) {
-                    $minutesLeft = $remaining[$task->id] ?? 0;
-                    if ($minutesLeft <= 0) {
+                    if ($scheduledTaskIds->contains($task->id)) {
                         continue;
                     }
 
+                    $minutes = $this->roundToSlot($task->duration_minutes);
                     $slotMinutes = $slot['start']->diffInMinutes($slot['end']);
-                    if ($slotMinutes < self::SLOT_MINUTES) {
-                        continue;
-                    }
-
-                    $minutes = min($minutesLeft, $slotMinutes);
-                    $minutes = intdiv($minutes, self::SLOT_MINUTES) * self::SLOT_MINUTES;
-
-                    if ($minutes <= 0) {
+                    if ($slotMinutes < $minutes) {
                         continue;
                     }
 
@@ -66,7 +55,7 @@ class SchedulerService
                         'minutes' => $minutes,
                     ]);
 
-                    $remaining[$task->id] = $minutesLeft - $minutes;
+                    $scheduledTaskIds->push($task->id);
                     $slot['start'] = $end;
 
                     if ($slot['start']->gte($slot['end'])) {
@@ -75,7 +64,7 @@ class SchedulerService
                 }
             }
 
-            if ($remaining->filter()->isEmpty() || $weeks >= self::MAX_WEEKS) {
+            if ($scheduledTaskIds->count() === $tasks->count() || $weeks >= self::MAX_WEEKS) {
                 break;
             }
 

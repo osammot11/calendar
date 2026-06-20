@@ -61,20 +61,18 @@ class SchedulerServiceTest extends TestCase
         $this->assertSame($maxTask->id, $first->task_id);
     }
 
-    public function test_task_can_split_across_days(): void
+    public function test_task_is_not_split_across_days(): void
     {
         $this->workday(1, '09:00', '10:00');
         $this->workday(2, '09:00', '10:00');
-        $project = $this->project('Split', 3);
+        $project = $this->project('No split', 3);
         $task = $this->task($project, 'Long task', 3, false, 90);
 
         app(SchedulerService::class)->recalculate();
 
-        $blocks = ScheduledBlock::query()->where('task_id', $task->id)->orderBy('start_at')->get();
-
-        $this->assertCount(2, $blocks);
-        $this->assertSame(60, $blocks[0]->minutes);
-        $this->assertSame(30, $blocks[1]->minutes);
+        $this->assertDatabaseMissing(ScheduledBlock::class, [
+            'task_id' => $task->id,
+        ]);
     }
 
     public function test_busy_block_is_avoided(): void
