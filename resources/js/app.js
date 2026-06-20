@@ -30,6 +30,8 @@ function blankTask(projects = []) {
         priority: 3,
         deadline: "",
         is_max_priority: false,
+        is_pinned: false,
+        pinned_start_at: "",
         status: "open",
     };
 }
@@ -228,6 +230,10 @@ createApp({
                       ...task,
                       deadline: task.deadline ? task.deadline.slice(0, 10) : "",
                       is_max_priority: Boolean(task.is_max_priority),
+                      is_pinned: Boolean(task.is_pinned),
+                      pinned_start_at: task.pinned_start_at
+                          ? task.pinned_start_at.slice(0, 16)
+                          : "",
                   }
                 : blankTask(data.value.projects);
             modal.value = "task";
@@ -324,6 +330,10 @@ createApp({
                 priority: Number(taskForm.value.priority),
                 deadline: taskForm.value.deadline || null,
                 is_max_priority: Boolean(taskForm.value.is_max_priority),
+                is_pinned: Boolean(taskForm.value.is_pinned),
+                pinned_start_at: taskForm.value.is_pinned
+                    ? taskForm.value.pinned_start_at
+                    : null,
             };
             const url = payload.id
                 ? `/planner-api/tasks/${payload.id}`
@@ -616,6 +626,7 @@ createApp({
                                 <div class="project-task-title">
                                     <strong>{{ task.title }}</strong>
                                     <span v-if="task.is_max_priority" class="chip alert-chip">Massima</span>
+                                    <span v-if="task.is_pinned" class="chip">Fissata</span>
                                     <span class="chip">{{ task.status === 'done' ? 'Completata' : 'Aperta' }}</span>
                                 </div>
                                 <small>{{ durationLabel(task.duration_minutes) }} · priorita {{ task.priority }}/5<span v-if="task.deadline"> · deadline {{ formatDate(task.deadline) }}</span></small>
@@ -783,6 +794,10 @@ createApp({
                                 <span>Priorita massima</span>
                                 <strong>{{ selectedCalendarEvent.task.is_max_priority ? 'Si' : 'No' }}</strong>
                             </div>
+                            <div>
+                                <span>Fissata</span>
+                                <strong>{{ selectedCalendarEvent.task.is_pinned ? formatDateTime(selectedCalendarEvent.task.pinned_start_at) : 'No' }}</strong>
+                            </div>
                             <div v-if="selectedCalendarEvent.task.description" class="detail-wide">
                                 <span>Descrizione</span>
                                 <strong>{{ selectedCalendarEvent.task.description }}</strong>
@@ -811,6 +826,8 @@ createApp({
                     </div>
                     <label class="field"><span>Deadline opzionale</span><input type="date" v-model="taskForm.deadline"></label>
                     <label class="check-row"><input type="checkbox" v-model="taskForm.is_max_priority"><span>Priorita massima</span></label>
+                    <label class="check-row"><input type="checkbox" v-model="taskForm.is_pinned"><span>Fissa in calendario</span></label>
+                    <label v-if="taskForm.is_pinned" class="field"><span>Inizio fissato</span><input type="datetime-local" v-model="taskForm.pinned_start_at" required></label>
                     <label class="field"><span>Stato</span><select v-model="taskForm.status"><option value="open">Aperta</option><option value="done">Completata</option></select></label>
                     <div class="dialog-actions">
                         <button v-if="taskForm.id" class="button text danger" type="button" @click="destroy('/planner-api/tasks/' + taskForm.id); modal = null">Elimina</button>

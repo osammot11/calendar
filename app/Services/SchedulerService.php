@@ -32,9 +32,10 @@ class SchedulerService
 
         while ($scheduledTaskIds->count() < $tasks->count() && $weeks <= self::MAX_WEEKS) {
             ScheduledBlock::query()->delete();
-            $scheduledTaskIds = collect();
+            $pinnedBlocks = $this->schedulePinnedTasks($tasks);
+            $scheduledTaskIds = $pinnedBlocks->pluck('task_id');
 
-            foreach ($this->availableSlots($weeks) as $slot) {
+            foreach ($this->availableSlots($weeks, $pinnedBlocks) as $slot) {
                 foreach ($tasks as $task) {
                     if ($scheduledTaskIds->contains($task->id)) {
                         continue;
@@ -72,6 +73,31 @@ class SchedulerService
         }
     }
 
+    private function schedulePinnedTasks(Collection $tasks): Collection
+    {
+        return $tasks
+            ->filter(fn (Task $task) => $task->is_pinned && $task->pinned_start_at)
+            ->map(function (Task $task) {
+                $minutes = $this->roundToSlot($task->duration_minutes);
+                $start = $task->pinned_start_at->copy();
+                $end = $start->copy()->addMinutes($minutes);
+
+                ScheduledBlock::create([
+                    'task_id' => $task->id,
+                    'start_at' => $start,
+                    'end_at' => $end,
+                    'minutes' => $minutes,
+                ]);
+
+                return [
+                    'task_id' => $task->id,
+                    'start_at' => $start,
+                    'end_at' => $end,
+                ];
+            })
+            ->values();
+    }
+
     private function orderedTasks(): Collection
     {
         return Task::query()
@@ -96,7 +122,7 @@ class SchedulerService
             ->values();
     }
 
-    private function availableSlots(int $weeks): array
+    private function availableSlots(int $weeks, Collection $pinnedBlocks): array
     {
         $start = now()->startOfDay();
         $end = now()->addWeeks($weeks)->endOfDay();
@@ -113,6 +139,14 @@ class SchedulerService
             ->where('start_at', '<=', $end)
             ->orderBy('start_at')
             ->get();
+        $occupiedBlocks = $busyBlocks
+            ->map(fn (BusyBlock $block) => [
+                'start_at' => $block->start_at,
+                'end_at' => $block->end_at,
+            ])
+            ->concat($pinnedBlocks)
+            ->sortBy('start_at')
+            ->values();
 
         $slots = [];
 
@@ -134,7 +168,7 @@ class SchedulerService
                     $slotStart = $this->roundUp(now());
                 }
 
-                foreach ($this->subtractBusyBlocks($slotStart, $slotEnd, $busyBlocks) as $slot) {
+                foreach ($this->subtractBusyBlocks($slotStart, $slotEnd, $occupiedBlocks) as $slot) {
                     if ($slot['start']->lt($slot['end'])) {
                         $slots[] = $slot;
                     }
@@ -152,8 +186,8 @@ class SchedulerService
         $slots = [['start' => $start->copy(), 'end' => $end->copy()]];
 
         foreach ($busyBlocks as $busy) {
-            $busyStart = $busy->start_at;
-            $busyEnd = $busy->end_at;
+            $busyStart = $busy['start_at'];
+            $busyEnd = $busy['end_at'];
 
             $slots = collect($slots)->flatMap(function (array $slot) use ($busyStart, $busyEnd) {
                 if ($busyEnd->lte($slot['start']) || $busyStart->gte($slot['end'])) {

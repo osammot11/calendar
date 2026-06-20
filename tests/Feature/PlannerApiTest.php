@@ -40,6 +40,8 @@ class PlannerApiTest extends TestCase
             'priority' => 3,
             'deadline' => null,
             'is_max_priority' => false,
+            'is_pinned' => false,
+            'pinned_start_at' => null,
             'status' => 'open',
         ])->assertOk()->assertJson(fn ($json) => $json->has('events')->has('tasks')->etc());
 

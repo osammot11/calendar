@@ -93,6 +93,29 @@ class SchedulerServiceTest extends TestCase
         $this->assertSame('10:00', $block->start_at->format('H:i'));
     }
 
+    public function test_pinned_task_is_scheduled_at_fixed_time_and_blocks_auto_tasks(): void
+    {
+        $this->workday(1, '09:00', '12:00');
+        $project = $this->project('Pinned', 3);
+        $pinned = $this->task($project, 'Fixed work', 3, false, 60, [
+            'is_pinned' => true,
+            'pinned_start_at' => Carbon::parse('2026-06-22 09:30:00'),
+        ]);
+        $automatic = $this->task($project, 'Automatic work', 3, false, 60);
+
+        app(SchedulerService::class)->recalculate();
+
+        $pinnedBlock = ScheduledBlock::query()->where('task_id', $pinned->id)->first();
+        $automaticBlock = ScheduledBlock::query()->where('task_id', $automatic->id)->first();
+
+        $this->assertSame('09:30', $pinnedBlock->start_at->format('H:i'));
+        $this->assertSame('10:30', $pinnedBlock->end_at->format('H:i'));
+        $this->assertTrue(
+            $automaticBlock->end_at->lte($pinnedBlock->start_at)
+                || $automaticBlock->start_at->gte($pinnedBlock->end_at)
+        );
+    }
+
     private function workday(int $weekday, string $start, string $end): void
     {
         WorkSchedule::create([
@@ -111,14 +134,15 @@ class SchedulerServiceTest extends TestCase
         ]);
     }
 
-    private function task(Project $project, string $title, int $priority, bool $max = false, int $minutes = 60): Task
+    private function task(Project $project, string $title, int $priority, bool $max = false, int $minutes = 60, array $overrides = []): Task
     {
-        return Task::create([
+        return Task::create($overrides + [
             'project_id' => $project->id,
             'title' => $title,
             'duration_minutes' => $minutes,
             'priority' => $priority,
             'is_max_priority' => $max,
+            'is_pinned' => false,
             'status' => 'open',
         ]);
     }

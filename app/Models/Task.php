@@ -19,6 +19,8 @@ class Task extends Model
         'priority',
         'deadline',
         'is_max_priority',
+        'is_pinned',
+        'pinned_start_at',
         'status',
     ];
 
@@ -29,6 +31,8 @@ class Task extends Model
             'duration_minutes' => 'integer',
             'priority' => 'integer',
             'is_max_priority' => 'boolean',
+            'is_pinned' => 'boolean',
+            'pinned_start_at' => 'datetime',
         ];
     }
 

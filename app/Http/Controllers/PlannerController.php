@@ -204,6 +204,8 @@ class PlannerController extends Controller
             'priority' => ['required', 'integer', 'between:1,5'],
             'deadline' => ['nullable', 'date'],
             'is_max_priority' => ['required', 'boolean'],
+            'is_pinned' => ['required', 'boolean'],
+            'pinned_start_at' => ['nullable', 'required_if:is_pinned,true', 'date'],
             'status' => ['required', Rule::in(['open', 'done'])],
         ]);
     }
@@ -258,6 +260,8 @@ class PlannerController extends Controller
                     'project' => $block->task->project->name,
                     'priority' => $block->task->priority,
                     'max' => $block->task->is_max_priority,
+                    'pinned' => $block->task->is_pinned,
+                    'pinned_start_at' => $block->task->pinned_start_at?->toIso8601String(),
                     'description' => $block->task->description,
                     'duration_minutes' => $block->task->duration_minutes,
                     'deadline' => $block->task->deadline?->toDateString(),
