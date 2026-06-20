@@ -233,6 +233,23 @@ createApp({
             modal.value = "task";
         }
 
+        function openTaskForProject(project) {
+            taskForm.value = {
+                ...blankTask(data.value.projects),
+                project_id: project.id,
+            };
+            modal.value = "task";
+        }
+
+        function openContextualTask() {
+            if (activePanel.value === "projectDetail" && selectedProject.value) {
+                openTaskForProject(selectedProject.value);
+                return;
+            }
+
+            openTask();
+        }
+
         function openProject(project = null) {
             projectForm.value = project
                 ? {
@@ -522,9 +539,11 @@ createApp({
             maxPriorityTasks,
             modal,
             openBusyBlock,
+            openContextualTask,
             openProject,
             openProjectDetail,
             openTask,
+            openTaskForProject,
             openTasks,
             overrideDate,
             overrideRows,
@@ -585,7 +604,10 @@ createApp({
                             <h2>{{ selectedProject.name }}</h2>
                             <small>Priorita {{ selectedProject.priority }}<span v-if="selectedProject.deadline"> · deadline {{ formatDate(selectedProject.deadline) }}</span></small>
                         </div>
-                        <span class="project-dot detail-dot" :style="{ background: selectedProject.color }"></span>
+                        <div class="project-detail-actions">
+                            <span class="project-dot detail-dot" :style="{ background: selectedProject.color }"></span>
+                            <button class="button filled" @click="openTaskForProject(selectedProject)">Nuova task</button>
+                        </div>
                     </div>
 
                     <div class="project-task-list">
@@ -714,7 +736,7 @@ createApp({
                     </aside>
                 </section>
 
-                <button class="fab" @click="openTask()" title="Nuova task">+</button>
+                <button class="fab" @click="openContextualTask" title="Nuova task">+</button>
             </main>
 
             <div v-if="modal" class="dialog-backdrop">

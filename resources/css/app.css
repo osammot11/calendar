@@ -451,6 +451,13 @@ p {
     flex-basis: 34px;
 }
 
+.project-detail-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
 .project-task-list {
     display: grid;
     gap: 12px;
@@ -718,6 +725,10 @@ td {
     .project-task-row,
     .schedule-row {
         grid-template-columns: 1fr;
+    }
+
+    .project-detail-actions {
+        justify-content: flex-start;
     }
 
     .fab {
