@@ -65,6 +65,7 @@ createApp({
             dateOverrides: [],
             busyBlocks: [],
             events: [],
+            pastEvents: [],
             unscheduledTasks: [],
         });
         const activePanel = ref("overview");
@@ -456,6 +457,20 @@ createApp({
             });
         }
 
+        async function completePastEvent(event) {
+            await api(`/planner-api/past-events/${event.id}/complete`, {
+                method: "POST",
+                body: "{}",
+            });
+        }
+
+        async function reschedulePastEvent(event) {
+            await api(`/planner-api/past-events/${event.id}/reschedule`, {
+                method: "POST",
+                body: "{}",
+            });
+        }
+
         function durationLabel(minutes) {
             const hours = Math.floor(minutes / 60);
             const rest = minutes % 60;
@@ -537,6 +552,7 @@ createApp({
             activePanel,
             busyForm,
             calendarOptions,
+            completePastEvent,
             data,
             deleteSelectedEvent,
             doneTasks,
@@ -560,6 +576,7 @@ createApp({
             projectFor,
             projectForm,
             recalculate,
+            reschedulePastEvent,
             saveBusyBlock,
             saveOverride,
             saveProject,
@@ -586,6 +603,7 @@ createApp({
                 <div class="brand-mark">C</div>
                 <button class="icon-button" :class="{ active: activePanel === 'overview' }" @click="activePanel = 'overview'" title="Dashboard">D</button>
                 <button class="icon-button" :class="{ active: activePanel === 'projects' || activePanel === 'projectDetail' }" @click="activePanel = 'projects'" title="Progetti">P</button>
+                <button class="icon-button" :class="{ active: activePanel === 'pastEvents' }" @click="activePanel = 'pastEvents'" title="Eventi passati">E</button>
                 <button class="icon-button" :class="{ active: activePanel === 'settings' }" @click="activePanel = 'settings'" title="Impostazioni">I</button>
             </aside>
 
@@ -606,7 +624,44 @@ createApp({
 
                 <div v-if="error" class="snackbar">{{ error }}</div>
 
-                <section v-if="activePanel === 'projectDetail' && selectedProject" class="project-detail-page surface">
+                <section v-if="activePanel === 'pastEvents'" class="project-detail-page surface">
+                    <div class="project-detail-header">
+                        <div>
+                            <p class="eyebrow">Revisione</p>
+                            <h2>Eventi passati</h2>
+                            <small>{{ data.pastEvents.length }} eventi da classificare</small>
+                        </div>
+                    </div>
+
+                    <div class="project-task-list">
+                        <article v-for="event in data.pastEvents" :key="event.id" class="project-task-row">
+                            <div class="project-task-main">
+                                <div class="project-task-title">
+                                    <span class="project-dot" :style="{ background: event.project.color }"></span>
+                                    <strong>{{ event.title }}</strong>
+                                    <span v-if="event.task.is_max_priority" class="chip alert-chip">Massima</span>
+                                </div>
+                                <small>{{ event.project.name }} · {{ durationLabel(event.task.duration_minutes) }} · priorita {{ event.task.priority }}/5</small>
+                            </div>
+                            <div class="project-task-schedule">
+                                <span>Scaduto</span>
+                                <strong>{{ formatDateTime(event.end) }}</strong>
+                                <small>{{ formatDateTime(event.start) }} - {{ formatDateTime(event.end) }}</small>
+                            </div>
+                            <div class="row-actions past-event-actions">
+                                <button class="button tonal" @click="completePastEvent(event)">Completato</button>
+                                <button class="button text" @click="reschedulePastEvent(event)">Non completato</button>
+                            </div>
+                        </article>
+
+                        <div v-if="data.pastEvents.length === 0" class="empty-state">
+                            <strong>Nessun evento passato da revisionare</strong>
+                            <span>Le task non completate compariranno qui solo dopo la fine del loro slot.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section v-else-if="activePanel === 'projectDetail' && selectedProject" class="project-detail-page surface">
                     <div class="project-detail-header">
                         <button class="button tonal" @click="activePanel = 'projects'">Indietro</button>
                         <div>

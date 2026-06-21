@@ -41,6 +41,7 @@ class PlannerController extends Controller
             'dateOverrides' => DateWorkOverride::query()->orderByDesc('date')->orderBy('start_time')->limit(60)->get(),
             'busyBlocks' => BusyBlock::query()->where('end_at', '>=', now()->subWeek())->orderBy('start_at')->get(),
             'events' => $this->events(),
+            'pastEvents' => $this->pastEvents(),
             'unscheduledTasks' => Task::query()
                 ->with('project')
                 ->where('status', 'open')
@@ -184,6 +185,27 @@ class PlannerController extends Controller
         return $this->bootstrap();
     }
 
+    public function completePastEvent(ScheduledBlock $scheduledBlock): JsonResponse
+    {
+        $scheduledBlock->task->update(['status' => 'done']);
+        $this->scheduler->recalculate();
+
+        return $this->bootstrap();
+    }
+
+    public function reschedulePastEvent(ScheduledBlock $scheduledBlock): JsonResponse
+    {
+        $scheduledBlock->task->update([
+            'status' => 'open',
+            'is_pinned' => false,
+            'pinned_start_at' => null,
+        ]);
+        $scheduledBlock->delete();
+        $this->scheduler->recalculate();
+
+        return $this->bootstrap();
+    }
+
     private function validateProject(Request $request): array
     {
         return $request->validate([
@@ -287,5 +309,36 @@ class PlannerController extends Controller
             ]);
 
         return $scheduled->concat($busy)->values()->all();
+    }
+
+    private function pastEvents(): array
+    {
+        return ScheduledBlock::query()
+            ->with('task.project')
+            ->where('end_at', '<', now())
+            ->whereHas('task', fn ($query) => $query->where('status', 'open'))
+            ->orderByDesc('end_at')
+            ->get()
+            ->map(fn (ScheduledBlock $block) => [
+                'id' => $block->id,
+                'title' => $block->task->title,
+                'start' => $block->start_at->toIso8601String(),
+                'end' => $block->end_at->toIso8601String(),
+                'minutes' => $block->minutes,
+                'task' => [
+                    'id' => $block->task->id,
+                    'title' => $block->task->title,
+                    'priority' => $block->task->priority,
+                    'duration_minutes' => $block->task->duration_minutes,
+                    'is_max_priority' => $block->task->is_max_priority,
+                ],
+                'project' => [
+                    'id' => $block->task->project->id,
+                    'name' => $block->task->project->name,
+                    'color' => $block->task->project->color,
+                ],
+            ])
+            ->values()
+            ->all();
     }
 }

@@ -3,15 +3,24 @@
 namespace Tests\Feature;
 
 use App\Models\Project;
+use App\Models\ScheduledBlock;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\WorkSchedule;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PlannerApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_authenticated_user_can_create_project_and_task(): void
     {
@@ -46,5 +55,74 @@ class PlannerApiTest extends TestCase
         ])->assertOk()->assertJson(fn ($json) => $json->has('events')->has('tasks')->etc());
 
         $this->assertDatabaseHas(Task::class, ['title' => 'Preparare offerta']);
+    }
+
+    public function test_past_events_can_be_completed_or_rescheduled(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));
+
+        $this->actingAs(User::factory()->create());
+
+        WorkSchedule::create([
+            'weekday' => 1,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+        $project = Project::create([
+            'name' => 'Clienti',
+            'color' => '#006a6a',
+            'priority' => 4,
+        ]);
+        $completedTask = $this->openTask($project, 'Da chiudere');
+        $completedBlock = ScheduledBlock::create([
+            'task_id' => $completedTask->id,
+            'start_at' => Carbon::parse('2026-06-22 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-22 09:30:00'),
+            'minutes' => 30,
+        ]);
+
+        $this->getJson('/planner-api/bootstrap')
+            ->assertOk()
+            ->assertJsonCount(1, 'pastEvents')
+            ->assertJsonPath('pastEvents.0.title', 'Da chiudere');
+
+        $this->postJson("/planner-api/past-events/{$completedBlock->id}/complete")
+            ->assertOk()
+            ->assertJsonCount(0, 'pastEvents');
+
+        $this->assertSame('done', $completedTask->refresh()->status);
+
+        $rescheduledTask = $this->openTask($project, 'Da ripianificare');
+        $rescheduledBlock = ScheduledBlock::create([
+            'task_id' => $rescheduledTask->id,
+            'start_at' => Carbon::parse('2026-06-22 09:30:00'),
+            'end_at' => Carbon::parse('2026-06-22 09:45:00'),
+            'minutes' => 15,
+        ]);
+
+        $this->postJson("/planner-api/past-events/{$rescheduledBlock->id}/reschedule")
+            ->assertOk()
+            ->assertJsonCount(0, 'pastEvents');
+
+        $this->assertDatabaseMissing(ScheduledBlock::class, ['id' => $rescheduledBlock->id]);
+        $this->assertTrue(
+            $rescheduledTask
+                ->scheduledBlocks()
+                ->where('start_at', '>=', Carbon::parse('2026-06-22 10:00:00'))
+                ->exists()
+        );
+    }
+
+    private function openTask(Project $project, string $title): Task
+    {
+        return Task::create([
+            'project_id' => $project->id,
+            'title' => $title,
+            'duration_minutes' => 30,
+            'priority' => 3,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'status' => 'open',
+        ]);
     }
 }

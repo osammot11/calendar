@@ -19,6 +19,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('planner-api')->group(function () {
         Route::get('/bootstrap', [PlannerController::class, 'bootstrap']);
         Route::post('/recalculate', [PlannerController::class, 'recalculate']);
+        Route::post('/past-events/{scheduledBlock}/complete', [PlannerController::class, 'completePastEvent']);
+        Route::post('/past-events/{scheduledBlock}/reschedule', [PlannerController::class, 'reschedulePastEvent']);
 
         Route::post('/projects', [PlannerController::class, 'storeProject']);
         Route::put('/projects/{project}', [PlannerController::class, 'updateProject']);

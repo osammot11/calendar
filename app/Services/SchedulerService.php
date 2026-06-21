@@ -19,9 +19,15 @@ class SchedulerService
 
     public function recalculate(): void
     {
-        ScheduledBlock::query()->delete();
+        $unresolvedPastTaskIds = ScheduledBlock::query()
+            ->where('end_at', '<', now())
+            ->whereHas('task', fn ($query) => $query->where('status', 'open'))
+            ->pluck('task_id')
+            ->unique();
 
-        $tasks = $this->orderedTasks();
+        $this->deleteRecalculableBlocks();
+
+        $tasks = $this->orderedTasks($unresolvedPastTaskIds);
         if ($tasks->isEmpty()) {
             return;
         }
@@ -31,7 +37,7 @@ class SchedulerService
         $weeks = self::MIN_WEEKS;
 
         while ($scheduledTaskIds->count() < $tasks->count() && $weeks <= self::MAX_WEEKS) {
-            ScheduledBlock::query()->delete();
+            $this->deleteRecalculableBlocks();
             $pinnedBlocks = $this->schedulePinnedTasks($tasks);
             $scheduledTaskIds = $pinnedBlocks->pluck('task_id');
 
@@ -73,6 +79,13 @@ class SchedulerService
         }
     }
 
+    private function deleteRecalculableBlocks(): void
+    {
+        ScheduledBlock::query()
+            ->where('end_at', '>=', now())
+            ->delete();
+    }
+
     private function schedulePinnedTasks(Collection $tasks): Collection
     {
         return $tasks
@@ -82,8 +95,9 @@ class SchedulerService
                 $start = $task->pinned_start_at->copy();
                 $end = $start->copy()->addMinutes($minutes);
 
-                ScheduledBlock::create([
+                ScheduledBlock::updateOrCreate([
                     'task_id' => $task->id,
+                ], [
                     'start_at' => $start,
                     'end_at' => $end,
                     'minutes' => $minutes,
@@ -98,11 +112,12 @@ class SchedulerService
             ->values();
     }
 
-    private function orderedTasks(): Collection
+    private function orderedTasks(Collection $excludedTaskIds): Collection
     {
         return Task::query()
             ->with('project')
             ->where('status', 'open')
+            ->whereNotIn('id', $excludedTaskIds)
             ->get()
             ->sort(function (Task $a, Task $b) {
                 foreach ([

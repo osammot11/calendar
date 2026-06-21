@@ -93,6 +93,39 @@ class SchedulerServiceTest extends TestCase
         $this->assertSame('10:00', $block->start_at->format('H:i'));
     }
 
+    public function test_unresolved_past_tasks_are_not_shifted_forward(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));
+
+        $this->workday(1, '09:00', '12:00');
+        $project = $this->project('Past events', 3);
+        $pastTask = $this->task($project, 'Already elapsed', 3, false, 30);
+        $futureTask = $this->task($project, 'Still schedulable', 3, false, 60);
+        ScheduledBlock::create([
+            'task_id' => $pastTask->id,
+            'start_at' => Carbon::parse('2026-06-22 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-22 09:30:00'),
+            'minutes' => 30,
+        ]);
+
+        app(SchedulerService::class)->recalculate();
+
+        $this->assertSame(1, ScheduledBlock::query()->where('task_id', $pastTask->id)->count());
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $pastTask->id,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 09:30:00',
+        ]);
+        $this->assertDatabaseMissing(ScheduledBlock::class, [
+            'task_id' => $pastTask->id,
+            'start_at' => '2026-06-22 10:00:00',
+        ]);
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $futureTask->id,
+            'start_at' => '2026-06-22 10:00:00',
+        ]);
+    }
+
     public function test_pinned_task_is_scheduled_at_fixed_time_and_blocks_auto_tasks(): void
     {
         $this->workday(1, '09:00', '12:00');

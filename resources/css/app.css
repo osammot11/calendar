@@ -512,6 +512,24 @@ p {
     justify-content: flex-end;
 }
 
+.past-event-actions {
+    min-width: 250px;
+}
+
+.empty-state {
+    display: grid;
+    gap: 6px;
+    border: 1px dashed var(--md-outline-variant);
+    border-radius: var(--radius-md);
+    color: var(--md-on-surface-variant);
+    padding: 28px;
+    text-align: center;
+}
+
+.empty-state strong {
+    color: var(--md-on-surface);
+}
+
 .schedule-row {
     display: grid;
     grid-template-columns: auto 1fr 96px 96px;
