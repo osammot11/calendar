@@ -82,6 +82,7 @@ createApp({
         const scheduleDays = ref([]);
         const selectedCalendarEvent = ref(null);
         const selectedProjectId = ref(null);
+        const projectTaskFilter = ref("open");
 
         const calendarOptions = computed(() => ({
             plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -144,7 +145,11 @@ createApp({
         );
         const selectedProjectTasks = computed(() =>
             [...data.value.tasks]
-                .filter((task) => task.project_id === selectedProjectId.value)
+                .filter(
+                    (task) =>
+                        task.project_id === selectedProjectId.value &&
+                        task.status === projectTaskFilter.value,
+                )
                 .sort((a, b) => {
                     const deadlineA = a.deadline || "9999-12-31";
                     const deadlineB = b.deadline || "9999-12-31";
@@ -158,6 +163,18 @@ createApp({
                     );
                 }),
         );
+        const selectedProjectTaskCounts = computed(() => {
+            const projectTasks = data.value.tasks.filter(
+                (task) => task.project_id === selectedProjectId.value,
+            );
+
+            return {
+                open: projectTasks.filter((task) => task.status === "open")
+                    .length,
+                done: projectTasks.filter((task) => task.status === "done")
+                    .length,
+            };
+        });
 
         async function api(url, options = {}) {
             saving.value = true;
@@ -271,6 +288,7 @@ createApp({
 
         function openProjectDetail(project) {
             selectedProjectId.value = project.id;
+            projectTaskFilter.value = "open";
             activePanel.value = "projectDetail";
         }
 
@@ -573,6 +591,8 @@ createApp({
             openTasks,
             overrideDate,
             overrideRows,
+            projectTaskFilter,
+            selectedProjectTaskCounts,
             projectFor,
             projectForm,
             recalculate,
@@ -675,6 +695,19 @@ createApp({
                         </div>
                     </div>
 
+                    <div class="project-task-toolbar">
+                        <div class="filter-pill-group" aria-label="Filtro task progetto">
+                            <button class="filter-pill" :class="{ active: projectTaskFilter === 'open' }" @click="projectTaskFilter = 'open'">
+                                Aperte
+                                <span>{{ selectedProjectTaskCounts.open }}</span>
+                            </button>
+                            <button class="filter-pill" :class="{ active: projectTaskFilter === 'done' }" @click="projectTaskFilter = 'done'">
+                                Completate
+                                <span>{{ selectedProjectTaskCounts.done }}</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="project-task-list">
                         <article v-for="task in selectedProjectTasks" :key="task.id" class="project-task-row">
                             <div class="project-task-main">
@@ -701,6 +734,11 @@ createApp({
                             </div>
                             <button class="button text" @click="openTask(task)">Modifica</button>
                         </article>
+
+                        <div v-if="selectedProjectTasks.length === 0" class="empty-state">
+                            <strong>Nessuna task {{ projectTaskFilter === 'open' ? 'aperta' : 'completata' }}</strong>
+                            <span>{{ projectTaskFilter === 'open' ? 'Le nuove task del progetto compariranno qui.' : 'Quando completi una task la ritrovi in questa vista.' }}</span>
+                        </div>
                     </div>
                 </section>
 

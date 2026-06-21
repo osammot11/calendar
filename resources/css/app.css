@@ -463,6 +463,62 @@ p {
     gap: 12px;
 }
 
+.project-task-toolbar {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.filter-pill-group {
+    display: inline-flex;
+    gap: 4px;
+    border: 1px solid var(--md-outline-variant);
+    border-radius: 999px;
+    background: var(--md-surface-container);
+    padding: 4px;
+}
+
+.filter-pill {
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--md-on-surface-variant);
+    font-weight: 900;
+    padding: 0 14px;
+    transition:
+        background 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.filter-pill:hover {
+    background: rgba(23, 23, 23, 0.06);
+}
+
+.filter-pill.active {
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    box-shadow: var(--shadow-1);
+}
+
+.filter-pill span {
+    display: grid;
+    min-width: 24px;
+    min-height: 24px;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--md-on-surface);
+    font-size: 0.76rem;
+}
+
+.filter-pill.active span {
+    background: rgba(255, 255, 255, 0.88);
+}
+
 .project-task-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) auto;
