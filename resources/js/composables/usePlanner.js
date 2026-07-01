@@ -3,6 +3,7 @@ import { getCsrfToken, plannerRequest } from "../api/plannerApi";
 import {
     blankProject,
     blankTask,
+    toDateTimeInput,
     toDateTimeLocal,
     today,
     weekdays,
@@ -153,9 +154,7 @@ export function usePlanner() {
                   deadline: task.deadline ? task.deadline.slice(0, 10) : "",
                   is_max_priority: Boolean(task.is_max_priority),
                   is_pinned: Boolean(task.is_pinned),
-                  pinned_start_at: task.pinned_start_at
-                      ? task.pinned_start_at.slice(0, 16)
-                      : "",
+                  pinned_start_at: toDateTimeInput(task.pinned_start_at),
               }
             : blankTask(data.value.projects);
         modal.value = "task";
@@ -200,14 +199,10 @@ export function usePlanner() {
         busyForm.value = block
             ? {
                   ...block,
-                  start_at: block.start_at
-                      ? block.start_at.slice(0, 16)
-                      : toDateTimeLocal(),
-                  end_at: block.end_at
-                      ? block.end_at.slice(0, 16)
-                      : toDateTimeLocal(
-                            new Date(Date.now() + 60 * 60 * 1000),
-                        ),
+                  start_at: toDateTimeInput(block.start_at) || toDateTimeLocal(),
+                  end_at:
+                      toDateTimeInput(block.end_at) ||
+                      toDateTimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
               }
             : {
                   title: "",

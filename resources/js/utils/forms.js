@@ -44,3 +44,29 @@ export function toDateTimeLocal(date = new Date()) {
 
     return copy.toISOString().slice(0, 16);
 }
+
+export function toDateTimeInput(value) {
+    if (!value) {
+        return "";
+    }
+
+    if (value instanceof Date) {
+        return toDateTimeLocal(value);
+    }
+
+    const text = String(value);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(text)) {
+        return text;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(text)) {
+        return text.replace(" ", "T").slice(0, 16);
+    }
+
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) {
+        return "";
+    }
+
+    return toDateTimeLocal(parsed);
+}
