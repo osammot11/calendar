@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\PlannerController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/planner');
+Route::get('/calendar-feed/{token}.ics', CalendarFeedController::class)->name('calendar-feed');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
