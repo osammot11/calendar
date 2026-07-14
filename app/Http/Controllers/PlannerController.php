@@ -39,7 +39,7 @@ class PlannerController extends Controller
             'tasks' => Task::query()->with('project')->latest()->get(),
             'workSchedules' => WorkSchedule::query()->orderBy('weekday')->orderBy('start_time')->get(),
             'dateOverrides' => DateWorkOverride::query()->orderByDesc('date')->orderBy('start_time')->limit(60)->get(),
-            'busyBlocks' => BusyBlock::query()->where('end_at', '>=', now()->subWeek())->orderBy('start_at')->get(),
+            'busyBlocks' => BusyBlock::query()->orderBy('start_at')->get(),
             'events' => $this->events(),
             'pastEvents' => $this->pastEvents(),
             'unscheduledTasks' => Task::query()
@@ -264,7 +264,6 @@ class PlannerController extends Controller
     {
         $scheduled = ScheduledBlock::query()
             ->with('task.project')
-            ->where('end_at', '>=', now()->subWeek())
             ->orderBy('start_at')
             ->get()
             ->map(fn (ScheduledBlock $block) => [
@@ -292,7 +291,6 @@ class PlannerController extends Controller
             ]);
 
         $busy = BusyBlock::query()
-            ->where('end_at', '>=', now()->subWeek())
             ->orderBy('start_at')
             ->get()
             ->map(fn (BusyBlock $block) => [

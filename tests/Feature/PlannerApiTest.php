@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BusyBlock;
 use App\Models\Project;
 use App\Models\ScheduledBlock;
 use App\Models\Task;
@@ -111,6 +112,39 @@ class PlannerApiTest extends TestCase
                 ->where('start_at', '>=', Carbon::parse('2026-06-22 10:00:00'))
                 ->exists()
         );
+    }
+
+    public function test_bootstrap_includes_calendar_events_older_than_one_week(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-14 10:00:00'));
+
+        $this->actingAs(User::factory()->create());
+
+        $project = Project::create([
+            'name' => 'Archivio',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        $task = $this->openTask($project, 'Evento storico');
+        ScheduledBlock::create([
+            'task_id' => $task->id,
+            'start_at' => Carbon::parse('2026-06-01 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-01 10:00:00'),
+            'minutes' => 60,
+        ]);
+        BusyBlock::create([
+            'title' => 'Riunione storica',
+            'start_at' => Carbon::parse('2026-06-01 11:00:00'),
+            'end_at' => Carbon::parse('2026-06-01 12:00:00'),
+        ]);
+
+        $response = $this->getJson('/planner-api/bootstrap')->assertOk();
+
+        $titles = collect($response->json('events'))->pluck('title');
+
+        $this->assertTrue($titles->contains('Evento storico'));
+        $this->assertTrue($titles->contains('Riunione storica'));
+        $this->assertCount(1, $response->json('busyBlocks'));
     }
 
     private function openTask(Project $project, string $title): Task
