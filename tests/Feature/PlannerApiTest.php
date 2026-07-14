@@ -147,6 +147,88 @@ class PlannerApiTest extends TestCase
         $this->assertCount(1, $response->json('busyBlocks'));
     }
 
+    public function test_creating_task_schedules_only_the_new_task_without_moving_existing_events(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 09:00:00'));
+
+        $this->actingAs(User::factory()->create());
+
+        WorkSchedule::create([
+            'weekday' => 1,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+        $project = Project::create([
+            'name' => 'Incrementale',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        $existingTask = $this->openTask($project, 'Task gia pianificata');
+        ScheduledBlock::create([
+            'task_id' => $existingTask->id,
+            'start_at' => Carbon::parse('2026-06-22 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-22 10:00:00'),
+            'minutes' => 60,
+        ]);
+
+        $this->postJson('/planner-api/tasks', [
+            'project_id' => $project->id,
+            'title' => 'Nuova task urgente',
+            'description' => null,
+            'duration_minutes' => 60,
+            'priority' => 5,
+            'deadline' => null,
+            'is_max_priority' => true,
+            'is_pinned' => false,
+            'pinned_start_at' => null,
+            'status' => 'open',
+        ])->assertOk();
+
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $existingTask->id,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 10:00:00',
+        ]);
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => Task::query()->where('title', 'Nuova task urgente')->value('id'),
+            'start_at' => '2026-06-22 10:00:00',
+            'end_at' => '2026-06-22 11:00:00',
+        ]);
+    }
+
+    public function test_completing_past_event_does_not_run_global_recalculation(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));
+
+        $this->actingAs(User::factory()->create());
+
+        WorkSchedule::create([
+            'weekday' => 1,
+            'start_time' => '10:00',
+            'end_time' => '12:00',
+        ]);
+        $project = Project::create([
+            'name' => 'Revisione',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        $pastTask = $this->openTask($project, 'Da confermare');
+        $pastBlock = ScheduledBlock::create([
+            'task_id' => $pastTask->id,
+            'start_at' => Carbon::parse('2026-06-22 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-22 09:30:00'),
+            'minutes' => 30,
+        ]);
+        $unscheduledTask = $this->openTask($project, 'Da non toccare');
+
+        $this->postJson("/planner-api/past-events/{$pastBlock->id}/complete")
+            ->assertOk()
+            ->assertJsonCount(0, 'pastEvents');
+
+        $this->assertSame('done', $pastTask->refresh()->status);
+        $this->assertFalse($unscheduledTask->scheduledBlocks()->exists());
+    }
+
     private function openTask(Project $project, string $title): Task
     {
         return Task::create([

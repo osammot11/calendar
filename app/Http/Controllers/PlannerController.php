@@ -76,8 +76,8 @@ class PlannerController extends Controller
 
     public function storeTask(Request $request): JsonResponse
     {
-        Task::create($this->validateTask($request));
-        $this->scheduler->recalculate();
+        $task = Task::create($this->validateTask($request));
+        $this->scheduler->scheduleTask($task);
 
         return $this->bootstrap();
     }
@@ -85,7 +85,7 @@ class PlannerController extends Controller
     public function updateTask(Request $request, Task $task): JsonResponse
     {
         $task->update($this->validateTask($request));
-        $this->scheduler->recalculate();
+        $this->scheduler->scheduleTask($task);
 
         return $this->bootstrap();
     }
@@ -93,7 +93,6 @@ class PlannerController extends Controller
     public function deleteTask(Task $task): JsonResponse
     {
         $task->delete();
-        $this->scheduler->recalculate();
 
         return $this->bootstrap();
     }
@@ -188,7 +187,6 @@ class PlannerController extends Controller
     public function completePastEvent(ScheduledBlock $scheduledBlock): JsonResponse
     {
         $scheduledBlock->task->update(['status' => 'done']);
-        $this->scheduler->recalculate();
 
         return $this->bootstrap();
     }
@@ -201,7 +199,7 @@ class PlannerController extends Controller
             'pinned_start_at' => null,
         ]);
         $scheduledBlock->delete();
-        $this->scheduler->recalculate();
+        $this->scheduler->scheduleTask($scheduledBlock->task);
 
         return $this->bootstrap();
     }

@@ -79,6 +79,56 @@ class SchedulerService
         }
     }
 
+    public function scheduleTask(Task $task): void
+    {
+        $task->loadMissing('project');
+
+        ScheduledBlock::query()
+            ->where('task_id', $task->id)
+            ->where('end_at', '>=', now())
+            ->delete();
+
+        if ($task->status !== 'open') {
+            return;
+        }
+
+        if (
+            ScheduledBlock::query()
+                ->where('task_id', $task->id)
+                ->where('end_at', '<', now())
+                ->exists()
+        ) {
+            return;
+        }
+
+        if ($task->is_pinned && $task->pinned_start_at) {
+            $this->schedulePinnedTask($task);
+            return;
+        }
+
+        $minutes = $this->roundToSlot($task->duration_minutes);
+        $weeks = self::MIN_WEEKS;
+
+        while ($weeks <= self::MAX_WEEKS) {
+            foreach ($this->availableSlots($weeks, $this->existingScheduledBlocks($task)) as $slot) {
+                if ($slot['start']->diffInMinutes($slot['end']) < $minutes) {
+                    continue;
+                }
+
+                ScheduledBlock::create([
+                    'task_id' => $task->id,
+                    'start_at' => $slot['start'],
+                    'end_at' => $slot['start']->copy()->addMinutes($minutes),
+                    'minutes' => $minutes,
+                ]);
+
+                return;
+            }
+
+            $weeks += 4;
+        }
+    }
+
     private function deleteRecalculableBlocks(): void
     {
         ScheduledBlock::query()
@@ -91,25 +141,30 @@ class SchedulerService
         return $tasks
             ->filter(fn (Task $task) => $task->is_pinned && $task->pinned_start_at)
             ->map(function (Task $task) {
-                $minutes = $this->roundToSlot($task->duration_minutes);
-                $start = $task->pinned_start_at->copy();
-                $end = $start->copy()->addMinutes($minutes);
-
-                ScheduledBlock::updateOrCreate([
-                    'task_id' => $task->id,
-                ], [
-                    'start_at' => $start,
-                    'end_at' => $end,
-                    'minutes' => $minutes,
-                ]);
+                $block = $this->schedulePinnedTask($task);
 
                 return [
                     'task_id' => $task->id,
-                    'start_at' => $start,
-                    'end_at' => $end,
+                    'start_at' => $block->start_at,
+                    'end_at' => $block->end_at,
                 ];
             })
             ->values();
+    }
+
+    private function schedulePinnedTask(Task $task): ScheduledBlock
+    {
+        $minutes = $this->roundToSlot($task->duration_minutes);
+        $start = $task->pinned_start_at->copy();
+        $end = $start->copy()->addMinutes($minutes);
+
+        return ScheduledBlock::updateOrCreate([
+            'task_id' => $task->id,
+        ], [
+            'start_at' => $start,
+            'end_at' => $end,
+            'minutes' => $minutes,
+        ]);
     }
 
     private function orderedTasks(Collection $excludedTaskIds): Collection
@@ -194,6 +249,20 @@ class SchedulerService
         usort($slots, fn (array $a, array $b) => $a['start'] <=> $b['start']);
 
         return $slots;
+    }
+
+    private function existingScheduledBlocks(Task $task): Collection
+    {
+        return ScheduledBlock::query()
+            ->where('task_id', '!=', $task->id)
+            ->where('end_at', '>=', now())
+            ->orderBy('start_at')
+            ->get()
+            ->map(fn (ScheduledBlock $block) => [
+                'task_id' => $block->task_id,
+                'start_at' => $block->start_at,
+                'end_at' => $block->end_at,
+            ]);
     }
 
     private function subtractBusyBlocks(Carbon $start, Carbon $end, Collection $busyBlocks): array
