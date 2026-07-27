@@ -169,10 +169,15 @@ class SlackTaskWizardService
             'expires_at' => $this->expiry(),
         ], fn ($value) => $value !== null));
 
+        if (str_starts_with($actionId, 'project_select')) {
+            $this->receiveProject($draft, $value);
+
+            return;
+        }
+
         match ($actionId) {
             'cancel_draft' => $this->cancelDraft($draft),
             'skip_description', 'skip_deadline' => $this->skipCurrentStep($draft),
-            'project_select' => $this->receiveProject($draft, $value),
             'duration_preset' => $this->receiveDuration($draft, $value),
             'priority_select' => $this->receivePriority($draft, $value),
             'deadline_picker' => $this->receiveDeadline($draft, (string) data_get($action, 'selected_date')),
@@ -402,7 +407,7 @@ class SlackTaskWizardService
                 'elements' => $chunk
                     ->map(fn (Project $project) => $this->button(
                         Str::limit($project->name, 30, ''),
-                        'project_select',
+                        'project_select_'.$project->id,
                         (string) $project->id
                     ))
                     ->values()

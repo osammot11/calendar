@@ -166,7 +166,7 @@ class SlackTaskIntegrationTest extends TestCase
             'expires_at' => now()->addHour(),
         ]);
 
-        $this->interaction('project_select', (string) $project->id);
+        $this->interaction('project_select_'.$project->id, (string) $project->id);
 
         $draft = SlackTaskDraft::first();
 
@@ -197,7 +197,7 @@ class SlackTaskIntegrationTest extends TestCase
 
         $this->messageEvent('Preparare proposta');
         $this->interaction('skip_description', 'skip');
-        $this->interaction('project_select', (string) $project->id);
+        $this->interaction('project_select_'.$project->id, (string) $project->id);
         $this->messageEvent('1h30', 'Ev-DURATION');
         $this->interaction('priority_select', '4');
         $this->interaction('skip_deadline', 'skip');
@@ -217,6 +217,41 @@ class SlackTaskIntegrationTest extends TestCase
             'start_at' => '2026-07-28 09:00:00',
             'end_at' => '2026-07-28 10:30:00',
         ]);
+    }
+
+    public function test_project_prompt_uses_unique_button_action_ids(): void
+    {
+        collect(range(1, 6))->each(fn (int $index) => Project::create([
+            'name' => 'Progetto '.$index,
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]));
+        SlackTaskDraft::create([
+            'slack_user_id' => $this->userId,
+            'slack_channel_id' => $this->channelId,
+            'step' => 'description',
+            'payload' => ['title' => 'Task'],
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $this->interaction('skip_description', 'skip');
+
+        $projectPrompt = collect(Http::recorded())
+            ->map(fn (array $record) => $record[0])
+            ->filter(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage')
+            ->map(fn ($request) => $request->data())
+            ->first(fn (array $payload) => str_contains($payload['text'] ?? '', 'Scegli il progetto'));
+
+        $this->assertNotNull($projectPrompt);
+
+        foreach ($projectPrompt['blocks'] as $block) {
+            if (($block['type'] ?? null) !== 'actions') {
+                continue;
+            }
+
+            $actionIds = collect($block['elements'])->pluck('action_id')->filter()->values();
+            $this->assertSame($actionIds->count(), $actionIds->unique()->count());
+        }
     }
 
     public function test_wizard_creates_a_pinned_task_with_fixed_start(): void
