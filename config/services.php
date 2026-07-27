@@ -29,6 +29,13 @@ return [
     ],
 
     'slack' => [
+        'bot_token' => env('SLACK_BOT_TOKEN', env('SLACK_BOT_USER_OAUTH_TOKEN')),
+        'signing_secret' => env('SLACK_SIGNING_SECRET'),
+        'allowed_user_ids' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', env('SLACK_ALLOWED_USER_IDS', ''))
+        ))),
+        'task_draft_ttl_minutes' => (int) env('SLACK_TASK_DRAFT_TTL_MINUTES', 60),
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),

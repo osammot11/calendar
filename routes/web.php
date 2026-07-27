@@ -3,10 +3,14 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\PlannerController;
+use App\Http\Controllers\SlackController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/planner');
 Route::get('/calendar-feed/{token}.ics', CalendarFeedController::class)->name('calendar-feed');
+Route::post('/slack/commands/task', [SlackController::class, 'command'])->name('slack.commands.task');
+Route::post('/slack/events', [SlackController::class, 'events'])->name('slack.events');
+Route::post('/slack/interactions', [SlackController::class, 'interactions'])->name('slack.interactions');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
