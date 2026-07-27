@@ -177,8 +177,9 @@ class SchedulerService
             ->sort(function (Task $a, Task $b) {
                 foreach ([
                     $b->is_max_priority <=> $a->is_max_priority,
+                    $this->projectDeadlineTimestamp($a) <=> $this->projectDeadlineTimestamp($b),
+                    $this->taskDeadlineTimestamp($a) <=> $this->taskDeadlineTimestamp($b),
                     $b->project->priority <=> $a->project->priority,
-                    $this->deadlineTimestamp($a) <=> $this->deadlineTimestamp($b),
                     $b->priority <=> $a->priority,
                     $a->created_at <=> $b->created_at,
                 ] as $comparison) {
@@ -293,13 +294,22 @@ class SchedulerService
         return $slots;
     }
 
-    private function deadlineTimestamp(Task $task): int
+    private function projectDeadlineTimestamp(Task $task): int
     {
-        $dates = collect([$task->deadline, $task->project->deadline])->filter();
+        if (! $task->project->deadline) {
+            return PHP_INT_MAX;
+        }
 
-        return $dates->isEmpty()
-            ? PHP_INT_MAX
-            : $dates->min()->startOfDay()->timestamp;
+        return $task->project->deadline->startOfDay()->timestamp;
+    }
+
+    private function taskDeadlineTimestamp(Task $task): int
+    {
+        if (! $task->deadline) {
+            return PHP_INT_MAX;
+        }
+
+        return $task->deadline->startOfDay()->timestamp;
     }
 
     private function roundToSlot(int $minutes): int

@@ -61,6 +61,59 @@ class SchedulerServiceTest extends TestCase
         $this->assertSame($maxTask->id, $first->task_id);
     }
 
+    public function test_max_priority_flag_beats_project_deadline(): void
+    {
+        $this->workday(1, '09:00', '12:00');
+        $deadlineProject = $this->project('Near deadline', 5, [
+            'deadline' => Carbon::parse('2026-06-23'),
+        ]);
+        $ordinaryProject = $this->project('Ordinary', 1);
+        $maxTask = $this->task($ordinaryProject, 'Max priority', 1, true);
+        $this->task($deadlineProject, 'Project deadline', 5);
+
+        app(SchedulerService::class)->recalculate();
+
+        $first = ScheduledBlock::query()->orderBy('start_at')->first();
+
+        $this->assertSame($maxTask->id, $first->task_id);
+    }
+
+    public function test_project_deadline_beats_task_deadline(): void
+    {
+        $this->workday(1, '09:00', '12:00');
+        $projectWithDeadline = $this->project('Project deadline', 1, [
+            'deadline' => Carbon::parse('2026-06-24'),
+        ]);
+        $projectWithoutDeadline = $this->project('Task deadline', 5);
+        $projectDeadlineTask = $this->task($projectWithDeadline, 'Project wins', 1);
+        $this->task($projectWithoutDeadline, 'Task deadline loses', 5, false, 60, [
+            'deadline' => Carbon::parse('2026-06-23'),
+        ]);
+
+        app(SchedulerService::class)->recalculate();
+
+        $first = ScheduledBlock::query()->orderBy('start_at')->first();
+
+        $this->assertSame($projectDeadlineTask->id, $first->task_id);
+    }
+
+    public function test_task_deadline_beats_project_priority(): void
+    {
+        $this->workday(1, '09:00', '12:00');
+        $lowProject = $this->project('Low priority', 1);
+        $highProject = $this->project('High priority', 5);
+        $deadlineTask = $this->task($lowProject, 'Task deadline', 1, false, 60, [
+            'deadline' => Carbon::parse('2026-06-23'),
+        ]);
+        $this->task($highProject, 'High project priority', 5);
+
+        app(SchedulerService::class)->recalculate();
+
+        $first = ScheduledBlock::query()->orderBy('start_at')->first();
+
+        $this->assertSame($deadlineTask->id, $first->task_id);
+    }
+
     public function test_task_is_not_split_across_days(): void
     {
         $this->workday(1, '09:00', '10:00');
@@ -158,9 +211,9 @@ class SchedulerServiceTest extends TestCase
         ]);
     }
 
-    private function project(string $name, int $priority): Project
+    private function project(string $name, int $priority, array $overrides = []): Project
     {
-        return Project::create([
+        return Project::create($overrides + [
             'name' => $name,
             'color' => '#6750a4',
             'priority' => $priority,
