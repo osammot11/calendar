@@ -148,6 +148,33 @@ class SlackTaskIntegrationTest extends TestCase
             ->first());
     }
 
+    public function test_project_selection_still_advances_when_interaction_channel_differs(): void
+    {
+        $project = Project::create([
+            'name' => 'Clienti',
+            'color' => '#006a6a',
+            'priority' => 4,
+        ]);
+        SlackTaskDraft::create([
+            'slack_user_id' => $this->userId,
+            'slack_channel_id' => 'D-ORIGINAL',
+            'step' => 'project',
+            'payload' => [
+                'title' => 'Task da telefono',
+                'description' => null,
+            ],
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $this->interaction('project_select', selectedOption: (string) $project->id);
+
+        $draft = SlackTaskDraft::first();
+
+        $this->assertSame('duration', $draft->step);
+        $this->assertSame($project->id, $draft->payload['project_id']);
+        $this->assertSame($this->channelId, $draft->slack_channel_id);
+    }
+
     public function test_wizard_creates_an_automatic_task_after_confirmation(): void
     {
         WorkSchedule::create([

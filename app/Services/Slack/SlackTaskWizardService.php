@@ -131,7 +131,11 @@ class SlackTaskWizardService
         $channelId = (string) (data_get($payload, 'channel.id') ?: data_get($payload, 'container.channel_id'));
         $action = (array) data_get($payload, 'actions.0', []);
         $actionId = (string) data_get($action, 'action_id');
-        $value = (string) (data_get($action, 'value') ?: data_get($action, 'selected_option.value'));
+        $value = (string) (
+            data_get($action, 'value')
+            ?: data_get($action, 'selected_option.value')
+            ?: data_get($action, 'selected_options.0.value')
+        );
 
         if ($actionId === 'draft_resume') {
             $draft = $this->activeDraft($userId);
@@ -153,14 +157,17 @@ class SlackTaskWizardService
             return;
         }
 
-        $draft = $this->activeDraft($userId, $channelId);
+        $draft = $this->activeDraft($userId, $channelId) ?: $this->activeDraft($userId);
         if (! $draft) {
             $this->slack->postMessage($channelId, 'Questa bozza non è più attiva. Lancia `/task` per iniziare.');
 
             return;
         }
 
-        $draft->update(['expires_at' => $this->expiry()]);
+        $draft->update(array_filter([
+            'slack_channel_id' => $channelId ?: null,
+            'expires_at' => $this->expiry(),
+        ], fn ($value) => $value !== null));
 
         match ($actionId) {
             'cancel_draft' => $this->cancelDraft($draft),
