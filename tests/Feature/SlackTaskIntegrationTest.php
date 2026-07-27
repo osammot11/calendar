@@ -166,7 +166,7 @@ class SlackTaskIntegrationTest extends TestCase
             'expires_at' => now()->addHour(),
         ]);
 
-        $this->interaction('project_select', selectedOption: (string) $project->id);
+        $this->interaction('project_select', (string) $project->id);
 
         $draft = SlackTaskDraft::first();
 
@@ -197,7 +197,7 @@ class SlackTaskIntegrationTest extends TestCase
 
         $this->messageEvent('Preparare proposta');
         $this->interaction('skip_description', 'skip');
-        $this->interaction('project_select', selectedOption: (string) $project->id);
+        $this->interaction('project_select', (string) $project->id);
         $this->messageEvent('1h30', 'Ev-DURATION');
         $this->interaction('priority_select', '4');
         $this->interaction('skip_deadline', 'skip');

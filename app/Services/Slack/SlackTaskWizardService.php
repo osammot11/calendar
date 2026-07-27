@@ -388,25 +388,35 @@ class SlackTaskWizardService
 
     private function askProject(SlackTaskDraft $draft, ?string $prefix = null): void
     {
-        $projects = Project::query()->orderByDesc('priority')->orderBy('name')->limit(100)->get();
+        $projects = Project::query()->orderByDesc('priority')->orderBy('name')->limit(45)->get();
         if ($projects->isEmpty()) {
             $this->send($draft, $prefix, 'Non ci sono progetti. Creane almeno uno dalla web app, poi rilancia `/task`.');
 
             return;
         }
 
-        $this->send($draft, $prefix, 'Scegli il progetto.', [[
+        $projectBlocks = $projects
+            ->chunk(5)
+            ->map(fn ($chunk) => [
+                'type' => 'actions',
+                'elements' => $chunk
+                    ->map(fn (Project $project) => $this->button(
+                        Str::limit($project->name, 30, ''),
+                        'project_select',
+                        (string) $project->id
+                    ))
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+
+        $projectBlocks[] = [
             'type' => 'actions',
-            'elements' => [[
-                'type' => 'static_select',
-                'action_id' => 'project_select',
-                'placeholder' => $this->plain('Progetto'),
-                'options' => $projects->map(fn (Project $project) => [
-                    'text' => $this->plain(Str::limit($project->name.' · P'.$project->priority, 75, '')),
-                    'value' => (string) $project->id,
-                ])->values()->all(),
-            ], $this->button('Annulla', 'cancel_draft', 'cancel')],
-        ]]);
+            'elements' => [$this->button('Annulla', 'cancel_draft', 'cancel')],
+        ];
+
+        $this->send($draft, $prefix, 'Scegli il progetto con un tap.', $projectBlocks);
     }
 
     private function askDuration(SlackTaskDraft $draft, ?string $prefix = null): void
