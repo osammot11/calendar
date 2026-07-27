@@ -199,10 +199,10 @@ class SlackTaskIntegrationTest extends TestCase
         $this->interaction('skip_description', 'skip');
         $this->interaction('project_select_'.$project->id, (string) $project->id);
         $this->messageEvent('1h30', 'Ev-DURATION');
-        $this->interaction('priority_select', '4');
+        $this->interaction('priority_select_4', '4');
         $this->interaction('skip_deadline', 'skip');
-        $this->interaction('task_type', 'auto');
-        $this->interaction('max_priority', 'no');
+        $this->interaction('task_type_auto', 'auto');
+        $this->interaction('max_priority_no', 'no');
         $this->interaction('confirm_task', 'confirm');
         $this->interaction('confirm_task', 'confirm');
 
@@ -244,13 +244,43 @@ class SlackTaskIntegrationTest extends TestCase
 
         $this->assertNotNull($projectPrompt);
 
-        foreach ($projectPrompt['blocks'] as $block) {
-            if (($block['type'] ?? null) !== 'actions') {
-                continue;
-            }
+        $this->assertActionIdsAreUniqueWithinEachBlock($projectPrompt);
+    }
 
-            $actionIds = collect($block['elements'])->pluck('action_id')->filter()->values();
-            $this->assertSame($actionIds->count(), $actionIds->unique()->count());
+    public function test_repeated_button_prompts_use_unique_action_ids(): void
+    {
+        $project = Project::create([
+            'name' => 'Clienti',
+            'color' => '#006a6a',
+            'priority' => 4,
+        ]);
+        SlackTaskDraft::create([
+            'slack_user_id' => $this->userId,
+            'slack_channel_id' => $this->channelId,
+            'step' => 'project',
+            'payload' => [
+                'title' => 'Task',
+                'description' => null,
+            ],
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $this->interaction('project_select_'.$project->id, (string) $project->id);
+        $this->interaction('duration_preset_60', '60');
+        $this->interaction('priority_select_3', '3');
+        $this->interaction('skip_deadline', 'skip');
+        $this->interaction('task_type_auto', 'auto');
+
+        $messages = collect(Http::recorded())
+            ->map(fn (array $record) => $record[0])
+            ->filter(fn ($request) => $request->url() === 'https://slack.com/api/chat.postMessage')
+            ->map(fn ($request) => $request->data());
+
+        foreach (['Quanto dura', 'Priorità attività', 'È una task', 'Flag priorità massima'] as $text) {
+            $prompt = $messages->first(fn (array $payload) => str_contains($payload['text'] ?? '', $text));
+
+            $this->assertNotNull($prompt, "Prompt non trovato: {$text}");
+            $this->assertActionIdsAreUniqueWithinEachBlock($prompt);
         }
     }
 
@@ -278,9 +308,9 @@ class SlackTaskIntegrationTest extends TestCase
 
         $fixedStart = Carbon::parse('2026-07-30 15:00:00', config('app.timezone'));
 
-        $this->interaction('task_type', 'pinned');
+        $this->interaction('task_type_pinned', 'pinned');
         $this->interaction('pinned_datetime', selectedDateTime: $fixedStart->timestamp);
-        $this->interaction('max_priority', 'yes');
+        $this->interaction('max_priority_yes', 'yes');
         $this->interaction('confirm_task', 'confirm');
 
         $task = Task::query()->where('title', 'Riunione importante')->firstOrFail();
@@ -354,6 +384,18 @@ class SlackTaskIntegrationTest extends TestCase
         $body = json_encode($payload, JSON_THROW_ON_ERROR);
 
         return $this->call('POST', $uri, [], [], [], $this->signedServer($body, 'application/json'), $body);
+    }
+
+    private function assertActionIdsAreUniqueWithinEachBlock(array $payload): void
+    {
+        foreach ($payload['blocks'] as $block) {
+            if (($block['type'] ?? null) !== 'actions') {
+                continue;
+            }
+
+            $actionIds = collect($block['elements'])->pluck('action_id')->filter()->values();
+            $this->assertSame($actionIds->count(), $actionIds->unique()->count());
+        }
     }
 
     private function signedServer(string $body, string $contentType): array

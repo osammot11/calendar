@@ -175,15 +175,35 @@ class SlackTaskWizardService
             return;
         }
 
+        if (str_starts_with($actionId, 'duration_preset')) {
+            $this->receiveDuration($draft, $value);
+
+            return;
+        }
+
+        if (str_starts_with($actionId, 'priority_select')) {
+            $this->receivePriority($draft, $value);
+
+            return;
+        }
+
+        if (str_starts_with($actionId, 'task_type')) {
+            $this->receiveTaskType($draft, $value);
+
+            return;
+        }
+
+        if (str_starts_with($actionId, 'max_priority')) {
+            $this->receiveMaxPriority($draft, $value);
+
+            return;
+        }
+
         match ($actionId) {
             'cancel_draft' => $this->cancelDraft($draft),
             'skip_description', 'skip_deadline' => $this->skipCurrentStep($draft),
-            'duration_preset' => $this->receiveDuration($draft, $value),
-            'priority_select' => $this->receivePriority($draft, $value),
             'deadline_picker' => $this->receiveDeadline($draft, (string) data_get($action, 'selected_date')),
-            'task_type' => $this->receiveTaskType($draft, $value),
             'pinned_datetime' => $this->receivePinnedDateTime($draft, data_get($action, 'selected_date_time')),
-            'max_priority' => $this->receiveMaxPriority($draft, $value),
             'confirm_task' => $this->confirmTask($draft),
             default => $this->sendCurrentStep($draft, 'Non ho riconosciuto questa azione. Riproviamo da qui.'),
         };
@@ -429,11 +449,11 @@ class SlackTaskWizardService
         $this->send($draft, $prefix, 'Quanto dura? Puoi anche scrivere `30m`, `1h` o `1h30`.', [[
             'type' => 'actions',
             'elements' => [
-                $this->button('15m', 'duration_preset', '15'),
-                $this->button('30m', 'duration_preset', '30'),
-                $this->button('1h', 'duration_preset', '60'),
-                $this->button('1h30', 'duration_preset', '90'),
-                $this->button('2h', 'duration_preset', '120'),
+                $this->button('15m', 'duration_preset_15', '15'),
+                $this->button('30m', 'duration_preset_30', '30'),
+                $this->button('1h', 'duration_preset_60', '60'),
+                $this->button('1h30', 'duration_preset_90', '90'),
+                $this->button('2h', 'duration_preset_120', '120'),
             ],
         ]]);
     }
@@ -443,7 +463,7 @@ class SlackTaskWizardService
         $this->send($draft, $prefix, 'Priorità attività?', [[
             'type' => 'actions',
             'elements' => collect(range(1, 5))
-                ->map(fn (int $priority) => $this->button((string) $priority, 'priority_select', (string) $priority))
+                ->map(fn (int $priority) => $this->button((string) $priority, 'priority_select_'.$priority, (string) $priority))
                 ->all(),
         ]]);
     }
@@ -468,8 +488,8 @@ class SlackTaskWizardService
         $this->send($draft, $prefix, 'È una task da pianificare automaticamente o un appuntamento fissato?', [[
             'type' => 'actions',
             'elements' => [
-                $this->button('Automatica', 'task_type', 'auto'),
-                $this->button('Appuntamento fissato', 'task_type', 'pinned'),
+                $this->button('Automatica', 'task_type_auto', 'auto'),
+                $this->button('Appuntamento fissato', 'task_type_pinned', 'pinned'),
             ],
         ]]);
     }
@@ -490,8 +510,8 @@ class SlackTaskWizardService
         $this->send($draft, $prefix, 'Flag priorità massima?', [[
             'type' => 'actions',
             'elements' => [
-                $this->button('Sì', 'max_priority', 'yes'),
-                $this->button('No', 'max_priority', 'no'),
+                $this->button('Sì', 'max_priority_yes', 'yes'),
+                $this->button('No', 'max_priority_no', 'no'),
             ],
         ]]);
     }
