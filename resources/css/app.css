@@ -327,13 +327,15 @@ p {
 }
 
 .task-list,
-.schedule-list {
+.schedule-list,
+.deadline-list {
     display: grid;
     gap: 10px;
 }
 
 .task-item,
-.project-card {
+.project-card,
+.deadline-item {
     border: 1px solid var(--md-outline-variant);
     border-radius: var(--radius-md);
     background: rgba(255, 255, 255, 0.46);
@@ -345,6 +347,61 @@ p {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+.deadlines-panel {
+    display: grid;
+    gap: 16px;
+}
+
+.deadline-tabs {
+    width: 100%;
+    justify-content: space-between;
+}
+
+.deadline-tabs .filter-pill {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+}
+
+.deadline-item {
+    display: grid;
+    gap: 12px;
+}
+
+.deadline-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.deadline-chip {
+    border-radius: 999px;
+    background: var(--md-surface-container);
+    color: var(--md-on-surface-variant);
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.deadline-schedule {
+    display: grid;
+    gap: 4px;
+    border-radius: var(--radius-md);
+    background: rgba(243, 237, 247, 0.72);
+    padding: 10px 12px;
+}
+
+.deadline-schedule span {
+    color: var(--md-on-surface-variant);
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.deadline-schedule strong {
+    font-size: 0.9rem;
 }
 
 .task-main {

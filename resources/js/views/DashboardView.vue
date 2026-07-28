@@ -2,6 +2,7 @@
 import { usePlannerContext } from "../composables/plannerContext";
 import PlannerCalendar from "../components/calendar/PlannerCalendar.vue";
 import DayPanel from "../components/panels/DayPanel.vue";
+import DeadlinesPanel from "../components/panels/DeadlinesPanel.vue";
 import OverviewPanel from "../components/panels/OverviewPanel.vue";
 import ProjectsPanel from "../components/panels/ProjectsPanel.vue";
 import SettingsPanel from "../components/panels/SettingsPanel.vue";
@@ -15,6 +16,7 @@ const { activePanel } = usePlannerContext();
 
         <aside class="side-panel">
             <OverviewPanel v-if="activePanel === 'overview'" />
+            <DeadlinesPanel v-if="activePanel === 'deadlines'" />
             <ProjectsPanel v-if="activePanel === 'projects'" />
             <SettingsPanel v-if="activePanel === 'settings'" />
             <DayPanel v-if="activePanel === 'day'" />

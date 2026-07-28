@@ -27,6 +27,32 @@ const initialData = () => ({
     unscheduledTasks: [],
 });
 
+function dateKey(value) {
+    if (!value) {
+        return null;
+    }
+
+    const text = String(value);
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+        return text.slice(0, 10);
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed.toISOString().slice(0, 10);
+}
+
+function addDaysKey(date, days) {
+    const [year, month, day] = date.split("-").map(Number);
+    const copy = new Date(Date.UTC(year, month - 1, day));
+    copy.setUTCDate(copy.getUTCDate() + days);
+
+    return copy.toISOString().slice(0, 10);
+}
+
 export function usePlanner() {
     const loading = ref(true);
     const saving = ref(false);
@@ -63,6 +89,77 @@ export function usePlanner() {
             data.value.projects.map((project) => [project.id, project]),
         ),
     );
+    const deadlineBuckets = computed(() => {
+        const todayKey = today();
+        const tomorrowKey = addDaysKey(todayKey, 1);
+        const buckets = {
+            overdue: [],
+            today: [],
+            tomorrow: [],
+        };
+
+        openTasks.value.forEach((task) => {
+            const project = projectFor(task);
+            const deadlines = [
+                {
+                    type: "task",
+                    label: "Task",
+                    date: dateKey(task.deadline),
+                },
+                {
+                    type: "project",
+                    label: "Progetto",
+                    date: dateKey(project.deadline),
+                },
+            ].filter((deadline) => deadline.date);
+
+            const taskBuckets = new Set();
+            deadlines.forEach((deadline) => {
+                if (deadline.date < todayKey) {
+                    taskBuckets.add("overdue");
+                } else if (deadline.date === todayKey) {
+                    taskBuckets.add("today");
+                } else if (deadline.date === tomorrowKey) {
+                    taskBuckets.add("tomorrow");
+                }
+            });
+
+            taskBuckets.forEach((bucket) => {
+                const matchingDeadlines = deadlines
+                    .filter((deadline) => {
+                        if (bucket === "overdue") {
+                            return deadline.date < todayKey;
+                        }
+
+                        return deadline.date === (bucket === "today"
+                            ? todayKey
+                            : tomorrowKey);
+                    })
+                    .sort((a, b) => a.date.localeCompare(b.date));
+
+                buckets[bucket].push({
+                    task,
+                    project,
+                    deadlines: matchingDeadlines,
+                    nextDeadline: matchingDeadlines[0].date,
+                });
+            });
+        });
+
+        Object.values(buckets).forEach((items) =>
+            items.sort(
+                (a, b) =>
+                    Number(b.task.is_max_priority) -
+                        Number(a.task.is_max_priority) ||
+                    a.nextDeadline.localeCompare(b.nextDeadline) ||
+                    (b.project.priority ?? 0) - (a.project.priority ?? 0) ||
+                    b.task.priority - a.task.priority ||
+                    a.task.title.localeCompare(b.task.title),
+            ),
+        );
+
+        return buckets;
+    });
     const selectedProject = computed(() =>
         data.value.projects.find(
             (project) => project.id === selectedProjectId.value,
@@ -456,6 +553,7 @@ export function usePlanner() {
         deleteSelectedEvent,
         deleteTaskFromModal,
         destroy,
+        deadlineBuckets,
         doneTasks,
         durationLabel,
         editSelectedEvent,
