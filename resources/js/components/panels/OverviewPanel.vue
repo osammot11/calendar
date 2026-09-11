@@ -1,4 +1,5 @@
 <script setup>
+import { Plus, CircleCheck } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -12,13 +13,13 @@ const {
 </script>
 
 <template>
-    <section class="panel-section surface">
+    <section class="panel-section surface overview-panel">
         <div class="section-heading">
             <div>
-                <p class="eyebrow">Focus</p>
+                <p class="eyebrow">Da portare a termine</p>
                 <h2>Task aperte</h2>
             </div>
-            <button class="button tonal" @click="openTask()">Nuova</button>
+            <button class="icon-button tonal" title="Nuova task" aria-label="Nuova task" @click="openTask()"><Plus :size="20" /></button>
         </div>
 
         <div class="metrics">
@@ -27,7 +28,7 @@ const {
             </div>
             <div class="metric">
                 <strong>{{ maxPriorityTasks.length }}</strong
-                ><span>Massime</span>
+                ><span>Urgenti</span>
             </div>
             <div class="metric">
                 <strong>{{ data.unscheduledTasks.length }}</strong
@@ -36,6 +37,11 @@ const {
         </div>
 
         <div class="task-list">
+            <div v-if="openTasks.length === 0" class="empty-state">
+                <CircleCheck :size="28" :stroke-width="1.5" />
+                <strong>Tutto in ordine</strong>
+                <span>Nessuna task aperta.</span>
+            </div>
             <article v-for="task in openTasks" :key="task.id" class="task-item">
                 <button class="task-main" @click="openTask(task)">
                     <span

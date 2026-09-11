@@ -1,4 +1,5 @@
 <script setup>
+import { X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -23,10 +24,10 @@ const {
                             : "Blocco occupato"
                     }}
                 </p>
-                <h2>{{ selectedCalendarEvent.title }}</h2>
+                <h2 id="dialog-title">{{ selectedCalendarEvent.title }}</h2>
             </div>
-            <button class="icon-button" type="button" @click="closeModal">
-                X
+            <button class="icon-button" type="button" title="Chiudi" aria-label="Chiudi" @click="closeModal">
+                <X :size="20" />
             </button>
         </div>
 

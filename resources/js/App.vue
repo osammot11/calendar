@@ -1,4 +1,5 @@
 <script setup>
+import { Plus } from "@lucide/vue";
 import { providePlanner } from "./composables/plannerContext";
 import { usePlanner } from "./composables/usePlanner";
 import AppHeader from "./components/layout/AppHeader.vue";
@@ -43,9 +44,10 @@ const {
             <button
                 class="fab"
                 title="Nuova task"
+                aria-label="Nuova task"
                 @click="openContextualTask"
             >
-                +
+                <Plus :size="26" />
             </button>
         </main>
 

@@ -9,7 +9,7 @@ const { saveSchedules, scheduleDays } = usePlannerContext();
         <div class="section-heading">
             <div>
                 <p class="eyebrow">Routine</p>
-                <h2>Fasce default</h2>
+                <h2>Orari di lavoro</h2>
             </div>
             <button class="button tonal" @click="saveSchedules">Salva</button>
         </div>

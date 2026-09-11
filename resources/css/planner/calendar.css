@@ -1,0 +1,45 @@
+.calendar-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px; min-height: 88px; }
+.calendar-date-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.calendar-date-navigation h2 { font-size: 17px; font-weight: 600; }
+.calendar-arrows { display: flex; gap: 0; }
+.calendar-arrows .icon-button { width: 30px; height: 34px; min-height: 34px; }
+.today-button { min-height: 32px; padding: 0 12px; font-size: 12px; }
+.calendar-view-control button { min-height: 30px; padding: 0 12px; border-radius: 18px; border: 0; background: transparent; color: var(--md-on-surface-variant); font-size: 11px; font-weight: 550; }
+.calendar-view-control button.active { background: white; color: var(--md-on-surface); box-shadow: 0 1px 4px #1a372218; }
+.calendar-view-control button:hover { color: var(--md-primary); }
+.calendar-scroll { overflow-x: auto; }
+.calendar-scroll.week-view .fc { min-width: 740px; }
+.fc { --fc-border-color: #edf0ee; --fc-today-bg-color: #f4faf6; --fc-page-bg-color: white; --fc-neutral-bg-color: #f9faf9; --fc-now-indicator-color: #d36358; --fc-highlight-color: #176b5b17; color: var(--md-on-surface); }
+.fc .fc-scrollgrid { border-left: 0; border-right: 0; border-bottom: 0; }
+.fc .fc-scrollgrid-section > td { border-right: 0; }
+.fc .fc-col-header-cell { padding: 17px 0; background: white; font-size: 12px; font-weight: 500; color: #6e7b74; }
+.fc .fc-col-header-cell-cushion { padding: 5px 9px; }
+.fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion { border-radius: 16px; background: var(--md-primary); color: white; }
+.fc .fc-timegrid-slot { height: var(--calendar-slot-height); }
+.fc .fc-timegrid-slot-minor { border-top-color: #f3f5f4; border-top-style: solid; }
+.fc .fc-timegrid-slot-label { vertical-align: top; }
+.fc .fc-timegrid-slot-label-cushion { position: relative; top: -9px; padding: 0 10px; background: white; color: #66746d; font-size: 10px; font-variant-numeric: tabular-nums; }
+.fc .fc-timegrid-slots tr:first-child .fc-timegrid-slot-label-cushion { top: 0; }
+.fc .fc-timegrid-axis { width: 54px; }
+.fc .fc-timegrid-col-events { margin: 0 4px; }
+.fc .fc-event { cursor: pointer; }
+.fc .fc-timegrid-event, .fc .fc-daygrid-event { border: 0; border-radius: 6px; padding: 0; box-shadow: none; background: transparent !important; overflow: hidden; }
+.fc .fc-timegrid-event .fc-event-main, .fc .fc-daygrid-event .fc-event-main { padding: 0; height: 100%; }
+.calendar-event-content { height: 100%; width: 100%; min-width: 0; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 7px 8px; border-left: 3px solid var(--event-color); border-radius: 5px; background: color-mix(in srgb, var(--event-color) 12%, white); color: color-mix(in srgb, var(--event-color) 50%, #17291f); line-height: 1.35; }
+.fc-event:hover .calendar-event-content { background: color-mix(in srgb, var(--event-color) 20%, white); }
+.calendar-event-time { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.calendar-event-content strong { font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }
+.calendar-event-project { font-size: 10px; opacity: .8; overflow-wrap: anywhere; }
+.calendar-event-content.event-done { opacity: .65; }
+.event-done strong { text-decoration: line-through; }
+.fc .fc-timegrid-event-short .calendar-event-content { flex-direction: row; flex-wrap: nowrap; align-items: center; padding: 3px 5px; }
+.fc .fc-timegrid-event-short .calendar-event-content strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc .fc-timegrid-event-short .calendar-event-hours,
+.fc .fc-timegrid-event-short .calendar-event-time:not(:has(svg)) { display: none; }
+.fc .fc-timegrid-event-short .calendar-event-project { display: none; }
+.fc .fc-timegrid-now-indicator-line { border-top-width: 2px; }
+.fc .fc-daygrid-day-number { padding: 8px 10px; font-size: 12px; color: var(--md-on-surface-variant); }
+.fc .fc-daygrid-event { white-space: normal; }
+.fc .fc-daygrid-event .calendar-event-content { padding: 4px 6px; gap: 2px; }
+.fc .fc-daygrid-event .calendar-event-project { display: none; }
+.fc .fc-daygrid-event-dot { display: none; }

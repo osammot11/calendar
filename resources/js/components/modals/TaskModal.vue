@@ -1,4 +1,5 @@
 <script setup>
+import { X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -14,9 +15,9 @@ const {
 <template>
     <form class="dialog surface" @submit.prevent="saveTask">
         <div class="dialog-heading">
-            <h2>{{ taskForm.id ? "Modifica task" : "Nuova task" }}</h2>
-            <button class="icon-button" type="button" @click="closeModal">
-                X
+            <h2 id="dialog-title">{{ taskForm.id ? "Modifica task" : "Nuova task" }}</h2>
+            <button class="icon-button" type="button" title="Chiudi" aria-label="Chiudi" @click="closeModal">
+                <X :size="20" />
             </button>
         </div>
         <label class="field">

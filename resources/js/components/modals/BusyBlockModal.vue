@@ -1,4 +1,5 @@
 <script setup>
+import { X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -13,15 +14,15 @@ const {
 <template>
     <form class="dialog surface" @submit.prevent="saveBusyBlock">
         <div class="dialog-heading">
-            <h2>
+            <h2 id="dialog-title">
                 {{
                     busyForm.id
                         ? "Modifica blocco occupato"
                         : "Blocco occupato"
                 }}
             </h2>
-            <button class="icon-button" type="button" @click="closeModal">
-                X
+            <button class="icon-button" type="button" title="Chiudi" aria-label="Chiudi" @click="closeModal">
+                <X :size="20" />
             </button>
         </div>
         <label class="field">

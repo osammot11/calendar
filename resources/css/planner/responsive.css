@@ -1,0 +1,73 @@
+@media (min-width: 1600px) {
+    .main-area { padding-inline: 36px; }
+    .dashboard-grid { grid-template-columns: minmax(0, 1fr) 370px; }
+    .panel-section { padding: 26px; }
+}
+@media (max-width: 1200px) {
+    .main-area { padding-inline: 20px; }
+    .dashboard-grid { grid-template-columns: minmax(0, 1fr) 300px; }
+    .panel-section { padding: 22px 16px; }
+    .schedule-row { grid-template-columns: 18px minmax(0, 1fr) 76px 76px; gap: 5px; }
+    .calendar-toolbar { padding: 16px; }
+    .project-task-row { grid-template-columns: minmax(0, 1fr) 210px; }
+    .project-task-row > .row-actions, .project-task-row > .button { grid-column: 1 / -1; justify-self: end; }
+}
+@media (max-width: 1100px) {
+    .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+    .side-panel { border-left: 0; border-top: 1px solid var(--md-outline-variant); }
+    .dashboard-grid:has(.side-panel > :not(.overview-panel)) .side-panel { order: -1; border-top: 0; border-bottom: 1px solid var(--md-outline-variant); }
+    .panel-section { padding: 22px; }
+    .schedule-row { grid-template-columns: 18px minmax(0, 1fr) 100px 100px; gap: 10px; }
+}
+@media (max-width: 720px) {
+    .app-shell { grid-template-columns: minmax(0, 1fr); }
+    .main-area { padding: 0 12px 108px; }
+    .top-app-bar { min-height: 94px; gap: 8px; }
+    .top-app-bar h1 { font-size: 22px; }
+    .top-app-bar .eyebrow { font-size: 11px; }
+    .top-actions { gap: 2px; }
+    .header-create { display: none; }
+    .nav-rail { position: fixed; inset: auto 0 0; height: auto; border-right: 0; border-top: 1px solid var(--md-outline-variant); padding: 8px 10px max(8px, env(safe-area-inset-bottom)); background: #fffffffa; backdrop-filter: blur(12px); }
+    .nav-rail .brand-mark, .nav-rail .user-avatar { display: none; }
+    .nav-items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; gap: 0; }
+    .nav-item { min-height: 52px; gap: 3px; font-size: 10px; }
+    .nav-icon { height: 30px; width: 50px; }
+    .fab { position: fixed; display: inline-flex; right: 22px; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 12; width: 56px; height: 56px; border-radius: 17px; background: var(--md-primary); color: white; box-shadow: var(--shadow-2); }
+    .dashboard-grid { border-inline: 0; }
+    .calendar-toolbar { padding: 16px 10px; gap: 14px; }
+    .calendar-date-navigation { width: 100%; gap: 8px; }
+    .calendar-date-navigation h2 { font-size: 16px; flex: 1; }
+    .calendar-view-control { width: 100%; }
+    .calendar-view-control button { flex: 1; min-height: 34px; font-size: 12px; }
+    .calendar-arrows .icon-button { width: 32px; min-height: 40px; }
+    .today-button { min-height: 36px; }
+    .calendar-scroll.week-view .fc { min-width: 700px; }
+    .fc .fc-col-header-cell { padding-block: 12px; }
+    .fc .fc-daygrid-day-number { padding: 8px 4px; }
+    .calendar-event-content strong { font-size: 12px; }
+    .fc .fc-daygrid-event .calendar-event-content strong { font-size: 10px; }
+    .fc .fc-daygrid-event .calendar-event-time { font-size: 9px; }
+    .panel-section { padding: 22px 16px; }
+    .project-detail-page { padding: 20px 12px; }
+    .project-detail-header { flex-wrap: wrap; gap: 16px; }
+    .project-detail-header h2 { font-size: 21px; }
+    .project-detail-actions { width: 100%; margin-left: 0; }
+    .project-detail-actions .button { margin-left: auto; }
+    .project-task-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .project-task-row > .row-actions, .project-task-row > .button { grid-column: auto; }
+    .dialog-backdrop { padding: 12px; }
+    .dialog { max-height: calc(100dvh - 24px); padding: 22px; gap: 16px; border-radius: 20px; }
+    .dialog-actions { bottom: -22px; }
+    .field input, .field select, .field textarea, .time-pair input { font-size: 16px; }
+    .auth-card { padding: 28px; }
+}
+@media (max-width: 380px) {
+    .main-area { padding-inline: 8px; }
+    .top-app-bar h1 { font-size: 20px; }
+    .panel-section { padding-inline: 12px; }
+    .schedule-row { grid-template-columns: 18px minmax(0, 1fr) 80px 80px; gap: 6px; }
+    .dialog { padding: 18px; }
+    .dialog-actions { bottom: -18px; }
+    .form-grid { gap: 10px; }
+    .button { padding-inline: 13px; }
+}
