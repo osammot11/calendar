@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
 
 class SchedulerService
 {
-    private const SLOT_MINUTES = 15;
+    private const SLOT_MINUTES = 5;
     private const MIN_WEEKS = 12;
     private const MAX_WEEKS = 52;
 

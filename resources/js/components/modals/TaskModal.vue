@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
@@ -10,6 +11,24 @@ const {
     saving,
     taskForm,
 } = usePlannerContext();
+
+const hourOptions = Array.from({ length: 41 }, (_, hour) => hour);
+const minuteOptions = Array.from({ length: 12 }, (_, index) => index * 5);
+
+const durationHours = computed({
+    get: () => Math.floor(Number(taskForm.value.duration_minutes || 0) / 60),
+    set: (hours) => setDuration(Number(hours), durationMinutes.value),
+});
+
+const durationMinutes = computed({
+    get: () => Number(taskForm.value.duration_minutes || 0) % 60,
+    set: (minutes) => setDuration(durationHours.value, Number(minutes)),
+});
+
+function setDuration(hours, minutes) {
+    const total = Math.min(2400, Math.max(5, hours * 60 + minutes));
+    taskForm.value.duration_minutes = total;
+}
 </script>
 
 <template>
@@ -40,26 +59,36 @@ const {
                 </option>
             </select>
         </label>
-        <div class="form-grid">
-            <label class="field">
-                <span>Durata minuti</span>
-                <input
-                    v-model="taskForm.duration_minutes"
-                    type="number"
-                    min="15"
-                    step="15"
-                    required
-                />
-            </label>
-            <label class="field">
+        <div class="duration-priority-grid">
+            <div class="field duration-field">
+                <span>Durata</span>
+                <div class="duration-selectors">
+                    <label>
+                        <span>Ore</span>
+                        <select v-model="durationHours" aria-label="Ore di durata">
+                            <option v-for="hour in hourOptions" :key="hour" :value="hour">
+                                {{ hour }}
+                            </option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Minuti</span>
+                        <select v-model="durationMinutes" aria-label="Minuti di durata">
+                            <option
+                                v-for="minute in minuteOptions"
+                                :key="minute"
+                                :value="minute"
+                                :disabled="durationHours === 40 && minute > 0"
+                            >
+                                {{ String(minute).padStart(2, "0") }}
+                            </option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <label class="field priority-field">
                 <span>Priorita task</span>
-                <input
-                    v-model="taskForm.priority"
-                    type="number"
-                    min="1"
-                    max="5"
-                    required
-                />
+                <input v-model="taskForm.priority" type="number" min="1" max="5" required />
             </label>
         </div>
         <label class="field">

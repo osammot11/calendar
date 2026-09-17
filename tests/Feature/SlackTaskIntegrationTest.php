@@ -219,6 +219,27 @@ class SlackTaskIntegrationTest extends TestCase
         ]);
     }
 
+    public function test_duration_step_rejects_values_outside_five_minute_increments(): void
+    {
+        SlackTaskDraft::create([
+            'slack_user_id' => $this->userId,
+            'slack_channel_id' => $this->channelId,
+            'step' => 'duration',
+            'payload' => ['title' => 'Controllo rapido'],
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $this->messageEvent('7m', 'Ev-BAD-DURATION');
+
+        $this->assertSame('duration', SlackTaskDraft::firstOrFail()->step);
+
+        $this->messageEvent('1h05', 'Ev-GOOD-DURATION');
+
+        $draft = SlackTaskDraft::firstOrFail();
+        $this->assertSame('priority', $draft->step);
+        $this->assertSame(65, $draft->payload['duration_minutes']);
+    }
+
     public function test_project_prompt_uses_unique_button_action_ids(): void
     {
         collect(range(1, 6))->each(fn (int $index) => Project::create([

@@ -59,6 +59,8 @@
     .dialog { max-height: calc(100dvh - 24px); padding: 22px; gap: 16px; border-radius: 20px; }
     .dialog-actions { bottom: -22px; }
     .field input, .field select, .field textarea, .time-pair input { font-size: 16px; }
+    .duration-priority-grid { grid-template-columns: minmax(0, 1fr); }
+    .duration-selectors select { font-size: 16px; }
     .auth-card { padding: 28px; }
 }
 @media (max-width: 380px) {

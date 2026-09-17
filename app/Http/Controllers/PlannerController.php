@@ -220,7 +220,7 @@ class PlannerController extends Controller
             'project_id' => ['required', Rule::exists('projects', 'id')],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'duration_minutes' => ['required', 'integer', 'min:15', 'max:2400'],
+            'duration_minutes' => ['required', 'integer', 'min:5', 'max:2400', 'multiple_of:5'],
             'priority' => ['required', 'integer', 'between:1,5'],
             'deadline' => ['nullable', 'date'],
             'is_max_priority' => ['required', 'boolean'],

@@ -87,6 +87,12 @@ input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: var
 .dialog-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; position: sticky; bottom: -28px; background: white; padding: 18px 0 4px; border-top: 1px solid var(--md-outline-variant); z-index: 1; }
 .dialog-actions .danger { margin-right: auto; }
 .form-grid, .detail-list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.duration-priority-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr); gap: 18px; align-items: end; }
+.duration-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.duration-selectors label { display: grid; min-width: 0; gap: 5px; }
+.duration-selectors label > span { color: var(--md-on-surface-variant); font-size: 10px; }
+.duration-selectors select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); background: white; color: var(--md-on-surface); padding: 10px 12px; outline: none; }
+.duration-selectors select:focus { border-color: var(--md-primary); box-shadow: 0 0 0 3px #176b5b15; }
 .detail-list > div { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid var(--md-outline-variant); }
 .detail-list span { color: var(--md-on-surface-variant); font-size: 11px; }
 .detail-list strong { font-size: 13px; font-weight: 550; overflow-wrap: anywhere; white-space: pre-wrap; }

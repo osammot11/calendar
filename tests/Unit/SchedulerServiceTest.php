@@ -146,6 +146,21 @@ class SchedulerServiceTest extends TestCase
         $this->assertSame('10:00', $block->start_at->format('H:i'));
     }
 
+    public function test_five_minute_task_keeps_its_exact_duration(): void
+    {
+        $this->workday(1, '09:00', '10:00');
+        $project = $this->project('Quick tasks', 3);
+        $task = $this->task($project, 'Five minute check', 3, false, 5);
+
+        app(SchedulerService::class)->recalculate();
+
+        $block = ScheduledBlock::query()->where('task_id', $task->id)->firstOrFail();
+
+        $this->assertSame(5, $block->minutes);
+        $this->assertSame('09:00', $block->start_at->format('H:i'));
+        $this->assertSame('09:05', $block->end_at->format('H:i'));
+    }
+
     public function test_unresolved_past_tasks_are_not_shifted_forward(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));

@@ -244,7 +244,7 @@ class SlackTaskWizardService
     {
         $minutes = $this->parseDuration($duration);
         if ($minutes === null) {
-            $this->askDuration($draft, 'Durata non chiara. Puoi scrivere per esempio `30m`, `1h` o `1h30`.');
+            $this->askDuration($draft, 'La durata deve essere un multiplo di 5 minuti. Puoi scrivere per esempio `25m`, `1h` o `1h30`.');
 
             return;
         }
@@ -446,10 +446,10 @@ class SlackTaskWizardService
 
     private function askDuration(SlackTaskDraft $draft, ?string $prefix = null): void
     {
-        $this->send($draft, $prefix, 'Quanto dura? Puoi anche scrivere `30m`, `1h` o `1h30`.', [[
+        $this->send($draft, $prefix, 'Quanto dura? Usa intervalli di 5 minuti, per esempio `25m`, `1h` o `1h30`.', [[
             'type' => 'actions',
             'elements' => [
-                $this->button('15m', 'duration_preset_15', '15'),
+                $this->button('5m', 'duration_preset_5', '5'),
                 $this->button('30m', 'duration_preset_30', '30'),
                 $this->button('1h', 'duration_preset_60', '60'),
                 $this->button('1h30', 'duration_preset_90', '90'),
@@ -697,7 +697,7 @@ class SlackTaskWizardService
             $minutes = ((int) $matches[1]) * 60 + (int) ($matches[2] ?? 0);
         }
 
-        if ($minutes === null || $minutes < 15 || $minutes > 2400) {
+        if ($minutes === null || $minutes < 5 || $minutes > 2400 || $minutes % 5 !== 0) {
             return null;
         }
 

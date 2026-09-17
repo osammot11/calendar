@@ -58,6 +58,45 @@ class PlannerApiTest extends TestCase
         $this->assertDatabaseHas(Task::class, ['title' => 'Preparare offerta']);
     }
 
+    public function test_task_duration_accepts_only_five_minute_increments(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 08:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create([
+            'name' => 'Attivita rapide',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        WorkSchedule::create([
+            'weekday' => 1,
+            'start_time' => '09:00',
+            'end_time' => '12:00',
+        ]);
+        $payload = [
+            'project_id' => $project->id,
+            'title' => 'Controllo rapido',
+            'description' => null,
+            'priority' => 3,
+            'deadline' => null,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'pinned_start_at' => null,
+            'status' => 'open',
+        ];
+
+        $this->postJson('/planner-api/tasks', $payload + ['duration_minutes' => 65])
+            ->assertOk();
+
+        $task = Task::query()->where('title', 'Controllo rapido')->firstOrFail();
+        $this->assertSame(65, $task->duration_minutes);
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $task->id,
+            'minutes' => 65,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 10:05:00',
+        ]);
+    }
+
     public function test_past_events_can_be_completed_or_rescheduled(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));
