@@ -6,7 +6,7 @@ import { usePlannerContext } from "../../composables/plannerContext";
 const { activePanel, csrfToken, recalculate, saving, openContextualTask } = usePlannerContext();
 const title = computed(() => ({
     overview: "Il tuo calendario", deadlines: "Scadenze", projects: "I tuoi progetti",
-    projectDetail: "Dettaglio progetto", pastEvents: "Eventi passati", settings: "Impostazioni", day: "La tua giornata",
+    projectDetail: "Dettaglio progetto", analytics: "Analytics", pastEvents: "Eventi passati", settings: "Impostazioni", day: "La tua giornata",
 }[activePanel.value] || "Il tuo calendario"));
 </script>
 

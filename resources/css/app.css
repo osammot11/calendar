@@ -3,4 +3,5 @@
 @import "./planner/layout.css";
 @import "./planner/components.css";
 @import "./planner/calendar.css";
+@import "./planner/analytics.css";
 @import "./planner/responsive.css";

@@ -131,6 +131,10 @@ class PlannerApiTest extends TestCase
             ->assertJsonCount(0, 'pastEvents');
 
         $this->assertSame('done', $completedTask->refresh()->status);
+        $this->assertSame(
+            '2026-06-22 10:00:00',
+            $completedTask->completed_at->format('Y-m-d H:i:s'),
+        );
 
         $rescheduledTask = $this->openTask($project, 'Da ripianificare');
         $rescheduledBlock = ScheduledBlock::create([
@@ -151,6 +155,47 @@ class PlannerApiTest extends TestCase
                 ->where('start_at', '>=', Carbon::parse('2026-06-22 10:00:00'))
                 ->exists()
         );
+    }
+
+    public function test_completing_and_reopening_task_updates_completed_at(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create([
+            'name' => 'Analytics',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        WorkSchedule::create([
+            'weekday' => 1,
+            'start_time' => '10:00',
+            'end_time' => '12:00',
+        ]);
+        $task = $this->openTask($project, 'Task misurata');
+        $payload = [
+            'project_id' => $project->id,
+            'title' => $task->title,
+            'description' => null,
+            'duration_minutes' => 30,
+            'priority' => 3,
+            'deadline' => null,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'pinned_start_at' => null,
+        ];
+
+        $this->putJson("/planner-api/tasks/{$task->id}", $payload + ['status' => 'done'])
+            ->assertOk();
+
+        $this->assertSame(
+            '2026-06-22 10:00:00',
+            $task->refresh()->completed_at->format('Y-m-d H:i:s'),
+        );
+
+        $this->putJson("/planner-api/tasks/{$task->id}", $payload + ['status' => 'open'])
+            ->assertOk();
+
+        $this->assertNull($task->refresh()->completed_at);
     }
 
     public function test_bootstrap_includes_calendar_events_older_than_one_week(): void

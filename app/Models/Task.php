@@ -22,6 +22,7 @@ class Task extends Model
         'is_pinned',
         'pinned_start_at',
         'status',
+        'completed_at',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class Task extends Model
             'is_max_priority' => 'boolean',
             'is_pinned' => 'boolean',
             'pinned_start_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 

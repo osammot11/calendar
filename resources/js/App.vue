@@ -6,6 +6,7 @@ import AppHeader from "./components/layout/AppHeader.vue";
 import AppNavigation from "./components/layout/AppNavigation.vue";
 import ModalHost from "./components/modals/ModalHost.vue";
 import DashboardView from "./views/DashboardView.vue";
+import AnalyticsView from "./views/AnalyticsView.vue";
 import PastEventsView from "./views/PastEventsView.vue";
 import ProjectDetailView from "./views/ProjectDetailView.vue";
 
@@ -36,6 +37,7 @@ const {
             <div v-if="error" class="snackbar">{{ error }}</div>
 
             <PastEventsView v-if="activePanel === 'pastEvents'" />
+            <AnalyticsView v-else-if="activePanel === 'analytics'" />
             <ProjectDetailView
                 v-else-if="activePanel === 'projectDetail' && selectedProject"
             />

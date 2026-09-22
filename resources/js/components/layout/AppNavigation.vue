@@ -1,5 +1,5 @@
 <script setup>
-import { CalendarDays, CalendarClock, FolderKanban, History, Settings2 } from "@lucide/vue";
+import { CalendarDays, CalendarClock, ChartBar, FolderKanban, History, Settings2 } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const { activePanel, data } = usePlannerContext();
@@ -7,6 +7,7 @@ const items = [
     { key: "overview", label: "Calendario", icon: CalendarDays, panels: ["overview", "day"] },
     { key: "deadlines", label: "Scadenze", icon: CalendarClock, panels: ["deadlines"] },
     { key: "projects", label: "Progetti", icon: FolderKanban, panels: ["projects", "projectDetail"] },
+    { key: "analytics", label: "Analytics", icon: ChartBar, panels: ["analytics"] },
     { key: "pastEvents", label: "Passati", icon: History, panels: ["pastEvents"] },
     { key: "settings", label: "Impostazioni", icon: Settings2, panels: ["settings"] },
 ];

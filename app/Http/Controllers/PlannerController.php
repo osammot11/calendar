@@ -12,15 +12,13 @@ use App\Services\SchedulerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PlannerController extends Controller
 {
-    public function __construct(private readonly SchedulerService $scheduler)
-    {
-    }
+    public function __construct(private readonly SchedulerService $scheduler) {}
 
     public function app(): View
     {
@@ -76,7 +74,9 @@ class PlannerController extends Controller
 
     public function storeTask(Request $request): JsonResponse
     {
-        $task = Task::create($this->validateTask($request));
+        $attributes = $this->validateTask($request);
+        $attributes['completed_at'] = $attributes['status'] === 'done' ? now() : null;
+        $task = Task::create($attributes);
         $this->scheduler->scheduleTask($task);
 
         return $this->bootstrap();
@@ -84,7 +84,11 @@ class PlannerController extends Controller
 
     public function updateTask(Request $request, Task $task): JsonResponse
     {
-        $task->update($this->validateTask($request));
+        $attributes = $this->validateTask($request);
+        $attributes['completed_at'] = $attributes['status'] === 'done'
+            ? ($task->completed_at ?? now())
+            : null;
+        $task->update($attributes);
         $this->scheduler->scheduleTask($task);
 
         return $this->bootstrap();
@@ -186,7 +190,10 @@ class PlannerController extends Controller
 
     public function completePastEvent(ScheduledBlock $scheduledBlock): JsonResponse
     {
-        $scheduledBlock->task->update(['status' => 'done']);
+        $scheduledBlock->task->update([
+            'status' => 'done',
+            'completed_at' => now(),
+        ]);
 
         return $this->bootstrap();
     }
@@ -195,6 +202,7 @@ class PlannerController extends Controller
     {
         $scheduledBlock->task->update([
             'status' => 'open',
+            'completed_at' => null,
             'is_pinned' => false,
             'pinned_start_at' => null,
         ]);
