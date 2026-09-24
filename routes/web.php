@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CalendarFeedController;
+use App\Http\Controllers\McpBridgeController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\SlackController;
+use App\Http\Middleware\EnsureMcpBridgeToken;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/planner');
@@ -11,6 +13,15 @@ Route::get('/calendar-feed/{token}.ics', CalendarFeedController::class)->name('c
 Route::post('/slack/commands/task', [SlackController::class, 'command'])->name('slack.commands.task');
 Route::post('/slack/events', [SlackController::class, 'events'])->name('slack.events');
 Route::post('/slack/interactions', [SlackController::class, 'interactions'])->name('slack.interactions');
+
+Route::prefix('internal/mcp')->middleware(EnsureMcpBridgeToken::class)->group(function () {
+    Route::get('/projects', [McpBridgeController::class, 'projects']);
+    Route::get('/tasks', [McpBridgeController::class, 'tasks']);
+    Route::get('/agenda', [McpBridgeController::class, 'agenda']);
+    Route::post('/tasks', [McpBridgeController::class, 'createTask']);
+    Route::patch('/tasks/{task}', [McpBridgeController::class, 'updateTask']);
+    Route::post('/tasks/{task}/complete', [McpBridgeController::class, 'completeTask']);
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

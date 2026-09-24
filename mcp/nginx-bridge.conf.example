@@ -1,0 +1,20 @@
+# A separate HTTP server for Node -> Laravel, bound exclusively to loopback.
+server {
+    listen 127.0.0.1:3002;
+    server_name localhost;
+    root /var/www/calendar/public;
+    index index.php;
+
+    location ^~ /internal/mcp/ {
+        try_files $uri /index.php?$query_string;
+    }
+
+    location = /index.php {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    }
+
+    location / {
+        return 404;
+    }
+}

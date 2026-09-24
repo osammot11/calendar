@@ -42,4 +42,8 @@ return [
         ],
     ],
 
+    'mcp' => [
+        'bridge_token' => env('MCP_BRIDGE_TOKEN'),
+    ],
+
 ];

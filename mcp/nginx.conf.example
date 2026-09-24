@@ -1,0 +1,23 @@
+# Add these locations inside the existing HTTPS server block for calendar.tommasogiovannoni.com.
+location = /mcp {
+    proxy_pass http://127.0.0.1:3001/mcp;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_buffering off;
+    proxy_read_timeout 120s;
+}
+
+location = /.well-known/oauth-protected-resource {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;
+}
+
+location = /.well-known/oauth-protected-resource/mcp {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;
+}
+
+# Never expose Laravel's MCP bridge on the public site.
+location ^~ /internal/mcp/ {
+    return 404;
+}

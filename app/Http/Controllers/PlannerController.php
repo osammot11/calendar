@@ -9,16 +9,16 @@ use App\Models\ScheduledBlock;
 use App\Models\Task;
 use App\Models\WorkSchedule;
 use App\Services\SchedulerService;
+use App\Services\TaskInput;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PlannerController extends Controller
 {
-    public function __construct(private readonly SchedulerService $scheduler) {}
+    public function __construct(private readonly SchedulerService $scheduler, private readonly TaskInput $taskInput) {}
 
     public function app(): View
     {
@@ -224,32 +224,7 @@ class PlannerController extends Controller
 
     private function validateTask(Request $request): array
     {
-        $attributes = $request->validate([
-            'project_id' => ['required', Rule::exists('projects', 'id')],
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'duration_minutes' => ['required', 'integer', 'min:5', 'max:2400', 'multiple_of:5'],
-            'earliest_start_time' => ['nullable', 'date_format:H:i', 'prohibited_if:is_pinned,true'],
-            'latest_end_time' => ['nullable', 'date_format:H:i', 'prohibited_if:is_pinned,true'],
-            'priority' => ['required', 'integer', 'between:1,5'],
-            'deadline' => ['nullable', 'date'],
-            'is_max_priority' => ['required', 'boolean'],
-            'is_pinned' => ['required', 'boolean'],
-            'pinned_start_at' => ['nullable', 'required_if:is_pinned,true', 'date'],
-            'status' => ['required', Rule::in(['open', 'done'])],
-        ]);
-
-        if (
-            ! empty($attributes['earliest_start_time'])
-            && ! empty($attributes['latest_end_time'])
-            && $attributes['latest_end_time'] <= $attributes['earliest_start_time']
-        ) {
-            throw ValidationException::withMessages([
-                'latest_end_time' => 'L\'orario limite di fine deve essere successivo a quello di inizio.',
-            ]);
-        }
-
-        return $attributes;
+        return $this->taskInput->validate($request->all());
     }
 
     private function validateBusyBlock(Request $request): array
