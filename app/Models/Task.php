@@ -16,6 +16,8 @@ class Task extends Model
         'title',
         'description',
         'duration_minutes',
+        'earliest_start_time',
+        'latest_end_time',
         'priority',
         'deadline',
         'is_max_priority',

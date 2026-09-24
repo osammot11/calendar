@@ -15,6 +15,8 @@ export function blankTask(projects = []) {
         title: "",
         description: "",
         duration_minutes: 60,
+        earliest_start_time: "",
+        latest_end_time: "",
         priority: 3,
         deadline: "",
         is_max_priority: false,

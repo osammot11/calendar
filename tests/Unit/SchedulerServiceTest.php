@@ -161,6 +161,85 @@ class SchedulerServiceTest extends TestCase
         $this->assertSame('09:05', $block->end_at->format('H:i'));
     }
 
+    public function test_incremental_scheduling_respects_daily_start_and_end_bounds(): void
+    {
+        $this->workday(1, '09:00', '18:00');
+        $project = $this->project('Finestra', 3);
+        $task = $this->task($project, 'Solo pomeriggio', 3, false, 60, [
+            'earliest_start_time' => '14:00',
+            'latest_end_time' => '15:00',
+        ]);
+
+        app(SchedulerService::class)->scheduleTask($task);
+
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $task->id,
+            'start_at' => '2026-06-22 14:00:00',
+            'end_at' => '2026-06-22 15:00:00',
+        ]);
+    }
+
+    public function test_recalculation_reuses_time_before_a_constrained_priority_task(): void
+    {
+        $this->workday(1, '09:00', '18:00');
+        $project = $this->project('Finestra', 3);
+        $constrained = $this->task($project, 'Urgente nel pomeriggio', 5, true, 60, [
+            'earliest_start_time' => '14:00',
+            'latest_end_time' => '15:00',
+        ]);
+        $ordinary = $this->task($project, 'Mattina libera', 1);
+
+        app(SchedulerService::class)->recalculate();
+
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $constrained->id,
+            'start_at' => '2026-06-22 14:00:00',
+        ]);
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $ordinary->id,
+            'start_at' => '2026-06-22 09:00:00',
+        ]);
+    }
+
+    public function test_end_bound_moves_task_to_next_available_day(): void
+    {
+        $this->workday(1, '09:00', '18:00');
+        $this->workday(2, '09:00', '18:00');
+        $project = $this->project('Finestra', 3);
+        BusyBlock::create([
+            'title' => 'Riunione',
+            'start_at' => Carbon::parse('2026-06-22 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-22 10:00:00'),
+        ]);
+        $task = $this->task($project, 'Solo entro le dieci', 3, false, 60, [
+            'latest_end_time' => '10:00',
+        ]);
+
+        app(SchedulerService::class)->scheduleTask($task);
+
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $task->id,
+            'start_at' => '2026-06-23 09:00:00',
+            'end_at' => '2026-06-23 10:00:00',
+        ]);
+    }
+
+    public function test_impossible_daily_window_leaves_task_unscheduled(): void
+    {
+        $this->workday(1, '09:00', '18:00');
+        $project = $this->project('Finestra', 3);
+        $task = $this->task($project, 'Troppo lunga', 3, false, 90, [
+            'earliest_start_time' => '14:00',
+            'latest_end_time' => '15:00',
+        ]);
+
+        app(SchedulerService::class)->scheduleTask($task);
+        $this->assertSame(0, ScheduledBlock::query()->where('task_id', $task->id)->count());
+
+        app(SchedulerService::class)->recalculate();
+        $this->assertSame(0, ScheduledBlock::query()->where('task_id', $task->id)->count());
+    }
+
     public function test_unresolved_past_tasks_are_not_shifted_forward(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));

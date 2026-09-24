@@ -62,6 +62,7 @@
     .dialog-actions { bottom: -22px; }
     .field input, .field select, .field textarea, .time-pair input { font-size: 16px; }
     .duration-priority-grid { grid-template-columns: minmax(0, 1fr); }
+    .task-advanced-fields { grid-template-columns: minmax(0, 1fr); }
     .duration-selectors select { font-size: 16px; }
     .auth-card { padding: 28px; }
     .analytics-toolbar { min-height: 0; padding: 20px 16px; }

@@ -107,6 +107,14 @@ const {
                         }}
                     </strong>
                 </div>
+                <div v-if="selectedCalendarEvent.task.earliest_start_time">
+                    <span>Inizio non prima delle</span>
+                    <strong>{{ selectedCalendarEvent.task.earliest_start_time.slice(0, 5) }}</strong>
+                </div>
+                <div v-if="selectedCalendarEvent.task.latest_end_time">
+                    <span>Fine non dopo le</span>
+                    <strong>{{ selectedCalendarEvent.task.latest_end_time.slice(0, 5) }}</strong>
+                </div>
                 <div
                     v-if="selectedCalendarEvent.task.description"
                     class="detail-wide"

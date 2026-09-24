@@ -252,6 +252,8 @@ export function usePlanner() {
                   is_max_priority: Boolean(task.is_max_priority),
                   is_pinned: Boolean(task.is_pinned),
                   pinned_start_at: toDateTimeInput(task.pinned_start_at),
+                  earliest_start_time: task.earliest_start_time?.slice(0, 5) || "",
+                  latest_end_time: task.latest_end_time?.slice(0, 5) || "",
               }
             : blankTask(data.value.projects);
         modal.value = "task";
@@ -363,6 +365,12 @@ export function usePlanner() {
             duration_minutes: Number(taskForm.value.duration_minutes),
             priority: Number(taskForm.value.priority),
             deadline: taskForm.value.deadline || null,
+            earliest_start_time: taskForm.value.is_pinned
+                ? null
+                : taskForm.value.earliest_start_time || null,
+            latest_end_time: taskForm.value.is_pinned
+                ? null
+                : taskForm.value.latest_end_time || null,
             is_max_priority: Boolean(taskForm.value.is_max_priority),
             is_pinned: Boolean(taskForm.value.is_pinned),
             pinned_start_at: taskForm.value.is_pinned

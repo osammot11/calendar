@@ -97,6 +97,59 @@ class PlannerApiTest extends TestCase
         ]);
     }
 
+    public function test_task_time_bounds_are_saved_updated_and_validated(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 08:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create([
+            'name' => 'Finestra',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        WorkSchedule::create([
+            'weekday' => 1,
+            'start_time' => '09:00',
+            'end_time' => '18:00',
+        ]);
+        $payload = [
+            'project_id' => $project->id,
+            'title' => 'Task vincolata',
+            'duration_minutes' => 60,
+            'priority' => 3,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'status' => 'open',
+            'earliest_start_time' => '14:00',
+            'latest_end_time' => '15:00',
+        ];
+
+        $this->postJson('/planner-api/tasks', $payload)->assertOk();
+        $task = Task::query()->where('title', 'Task vincolata')->firstOrFail();
+        $this->assertSame('14:00', substr($task->earliest_start_time, 0, 5));
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $task->id,
+            'start_at' => '2026-06-22 14:00:00',
+        ]);
+
+        $this->putJson("/planner-api/tasks/{$task->id}", array_replace($payload, [
+            'earliest_start_time' => '16:00',
+            'latest_end_time' => '17:00',
+        ]))->assertOk();
+        $this->assertDatabaseHas(ScheduledBlock::class, [
+            'task_id' => $task->id,
+            'start_at' => '2026-06-22 16:00:00',
+        ]);
+
+        $this->postJson('/planner-api/tasks', array_replace($payload, [
+            'latest_end_time' => '13:00',
+        ]))->assertUnprocessable()->assertJsonValidationErrors('latest_end_time');
+        $this->postJson('/planner-api/tasks', array_replace($payload, [
+            'earliest_start_time' => '14:17',
+            'is_pinned' => true,
+            'pinned_start_at' => '2026-06-22 14:00:00',
+        ]))->assertUnprocessable()->assertJsonValidationErrors('earliest_start_time');
+    }
+
     public function test_past_events_can_be_completed_or_rescheduled(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));

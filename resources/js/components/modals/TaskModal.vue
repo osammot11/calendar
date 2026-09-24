@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { X } from "@lucide/vue";
+import { ChevronDown, X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -118,6 +118,22 @@ function setDuration(hours, minutes) {
                 <option value="done">Completata</option>
             </select>
         </label>
+        <details v-if="!taskForm.is_pinned" class="task-advanced">
+            <summary>
+                <span>Avanzate</span>
+                <ChevronDown :size="18" aria-hidden="true" />
+            </summary>
+            <div class="task-advanced-fields">
+                <label class="field">
+                    <span>Non puo iniziare prima delle</span>
+                    <input v-model="taskForm.earliest_start_time" type="time" step="300" />
+                </label>
+                <label class="field">
+                    <span>Non puo finire dopo le</span>
+                    <input v-model="taskForm.latest_end_time" type="time" step="300" />
+                </label>
+            </div>
+        </details>
         <div class="dialog-actions">
             <button
                 v-if="taskForm.id"

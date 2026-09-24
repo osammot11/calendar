@@ -86,6 +86,13 @@ input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: var
 .dialog-heading h2 { font-size: 21px; }
 .dialog-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; position: sticky; bottom: -28px; background: white; padding: 18px 0 4px; border-top: 1px solid var(--md-outline-variant); z-index: 1; }
 .dialog-actions .danger { margin-right: auto; }
+.task-advanced { min-width: 0; border-block: 1px solid var(--md-outline-variant); }
+.task-advanced summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; color: var(--md-primary); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.task-advanced summary::-webkit-details-marker { display: none; }
+.task-advanced summary svg { transition: transform 150ms ease; }
+.task-advanced[open] summary svg { transform: rotate(180deg); }
+.task-advanced summary:focus-visible { outline: 2px solid var(--md-primary); outline-offset: 2px; }
+.task-advanced-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 2px 0 18px; }
 .form-grid, .detail-list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .duration-priority-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr); gap: 18px; align-items: end; }
 .duration-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

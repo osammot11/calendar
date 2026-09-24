@@ -41,33 +41,41 @@ class SchedulerService
             $pinnedBlocks = $this->schedulePinnedTasks($tasks);
             $scheduledTaskIds = $pinnedBlocks->pluck('task_id');
 
-            foreach ($this->availableSlots($weeks, $pinnedBlocks) as $slot) {
-                foreach ($tasks as $task) {
-                    if ($scheduledTaskIds->contains($task->id)) {
+            $slots = $this->availableSlots($weeks, $pinnedBlocks);
+
+            foreach ($tasks as $task) {
+                if ($scheduledTaskIds->contains($task->id)) {
+                    continue;
+                }
+
+                $minutes = $this->roundToSlot($task->duration_minutes);
+
+                foreach ($slots as $index => $slot) {
+                    $start = $this->eligibleStart($task, $slot);
+                    $end = $start->copy()->addMinutes($minutes);
+
+                    if ($end->gt($this->eligibleEnd($task, $slot))) {
                         continue;
                     }
-
-                    $minutes = $this->roundToSlot($task->duration_minutes);
-                    $slotMinutes = $slot['start']->diffInMinutes($slot['end']);
-                    if ($slotMinutes < $minutes) {
-                        continue;
-                    }
-
-                    $end = $slot['start']->copy()->addMinutes($minutes);
 
                     ScheduledBlock::create([
                         'task_id' => $task->id,
-                        'start_at' => $slot['start'],
+                        'start_at' => $start,
                         'end_at' => $end,
                         'minutes' => $minutes,
                     ]);
 
-                    $scheduledTaskIds->push($task->id);
-                    $slot['start'] = $end;
-
-                    if ($slot['start']->gte($slot['end'])) {
-                        break;
+                    $remaining = [];
+                    if ($slot['start']->lt($start)) {
+                        $remaining[] = ['start' => $slot['start'], 'end' => $start];
                     }
+                    if ($end->lt($slot['end'])) {
+                        $remaining[] = ['start' => $end, 'end' => $slot['end']];
+                    }
+
+                    array_splice($slots, $index, 1, $remaining);
+                    $scheduledTaskIds->push($task->id);
+                    break;
                 }
             }
 
@@ -111,14 +119,17 @@ class SchedulerService
 
         while ($weeks <= self::MAX_WEEKS) {
             foreach ($this->availableSlots($weeks, $this->existingScheduledBlocks($task)) as $slot) {
-                if ($slot['start']->diffInMinutes($slot['end']) < $minutes) {
+                $start = $this->eligibleStart($task, $slot);
+                $end = $start->copy()->addMinutes($minutes);
+
+                if ($end->gt($this->eligibleEnd($task, $slot))) {
                     continue;
                 }
 
                 ScheduledBlock::create([
                     'task_id' => $task->id,
-                    'start_at' => $slot['start'],
-                    'end_at' => $slot['start']->copy()->addMinutes($minutes),
+                    'start_at' => $start,
+                    'end_at' => $end,
                     'minutes' => $minutes,
                 ]);
 
@@ -264,6 +275,34 @@ class SchedulerService
                 'start_at' => $block->start_at,
                 'end_at' => $block->end_at,
             ]);
+    }
+
+    private function eligibleStart(Task $task, array $slot): Carbon
+    {
+        $start = $slot['start']->copy();
+
+        if ($task->earliest_start_time) {
+            $earliest = Carbon::parse($start->toDateString().' '.$task->earliest_start_time);
+            if ($earliest->gt($start)) {
+                $start = $this->roundUp($earliest);
+            }
+        }
+
+        return $start;
+    }
+
+    private function eligibleEnd(Task $task, array $slot): Carbon
+    {
+        $end = $slot['end']->copy();
+
+        if ($task->latest_end_time) {
+            $latest = Carbon::parse($end->toDateString().' '.$task->latest_end_time);
+            if ($latest->lt($end)) {
+                $end = $latest;
+            }
+        }
+
+        return $end;
     }
 
     private function subtractBusyBlocks(Carbon $start, Carbon $end, Collection $busyBlocks): array

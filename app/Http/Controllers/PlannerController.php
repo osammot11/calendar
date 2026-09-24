@@ -224,11 +224,13 @@ class PlannerController extends Controller
 
     private function validateTask(Request $request): array
     {
-        return $request->validate([
+        $attributes = $request->validate([
             'project_id' => ['required', Rule::exists('projects', 'id')],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:2400', 'multiple_of:5'],
+            'earliest_start_time' => ['nullable', 'date_format:H:i', 'prohibited_if:is_pinned,true'],
+            'latest_end_time' => ['nullable', 'date_format:H:i', 'prohibited_if:is_pinned,true'],
             'priority' => ['required', 'integer', 'between:1,5'],
             'deadline' => ['nullable', 'date'],
             'is_max_priority' => ['required', 'boolean'],
@@ -236,6 +238,18 @@ class PlannerController extends Controller
             'pinned_start_at' => ['nullable', 'required_if:is_pinned,true', 'date'],
             'status' => ['required', Rule::in(['open', 'done'])],
         ]);
+
+        if (
+            ! empty($attributes['earliest_start_time'])
+            && ! empty($attributes['latest_end_time'])
+            && $attributes['latest_end_time'] <= $attributes['earliest_start_time']
+        ) {
+            throw ValidationException::withMessages([
+                'latest_end_time' => 'L\'orario limite di fine deve essere successivo a quello di inizio.',
+            ]);
+        }
+
+        return $attributes;
     }
 
     private function validateBusyBlock(Request $request): array
