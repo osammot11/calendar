@@ -25,6 +25,7 @@ class Task extends Model
         'pinned_start_at',
         'status',
         'completed_at',
+        'worked_at',
     ];
 
     protected function casts(): array
@@ -37,6 +38,7 @@ class Task extends Model
             'is_pinned' => 'boolean',
             'pinned_start_at' => 'datetime',
             'completed_at' => 'datetime',
+            'worked_at' => 'datetime',
         ];
     }
 

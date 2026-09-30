@@ -74,12 +74,12 @@ export function useAnalytics(data) {
         const { start, end } = analyticsBounds.value;
 
         return data.value.tasks.filter((task) => {
-            if (task.status !== "done" || !task.completed_at) {
+            if (task.status !== "done" || !task.worked_at) {
                 return false;
             }
 
-            const completedAt = new Date(task.completed_at);
-            return completedAt >= start && completedAt < end;
+            const workedAt = new Date(task.worked_at);
+            return workedAt >= start && workedAt < end;
         });
     });
 

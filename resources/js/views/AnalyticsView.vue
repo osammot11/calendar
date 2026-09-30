@@ -142,7 +142,7 @@ function duration(minutes) {
         </div>
 
         <p class="analytics-note">
-            Il tempo viene attribuito alla data in cui una task viene segnata come completata.
+            Il tempo viene attribuito al giorno pianificato a calendario. Per le task senza uno slot storico si usa la data di completamento.
         </p>
     </section>
 </template>

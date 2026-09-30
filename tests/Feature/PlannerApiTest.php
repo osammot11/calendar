@@ -188,6 +188,10 @@ class PlannerApiTest extends TestCase
             '2026-06-22 10:00:00',
             $completedTask->completed_at->format('Y-m-d H:i:s'),
         );
+        $this->assertSame(
+            '2026-06-22 09:00:00',
+            $completedTask->worked_at->format('Y-m-d H:i:s'),
+        );
 
         $rescheduledTask = $this->openTask($project, 'Da ripianificare');
         $rescheduledBlock = ScheduledBlock::create([
@@ -249,6 +253,49 @@ class PlannerApiTest extends TestCase
             ->assertOk();
 
         $this->assertNull($task->refresh()->completed_at);
+        $this->assertNull($task->worked_at);
+    }
+
+    public function test_late_completion_uses_scheduled_day_for_analytics(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 15:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create([
+            'name' => 'Analytics',
+            'color' => '#006a6a',
+            'priority' => 3,
+        ]);
+        $task = $this->openTask($project, 'Lavoro di lunedi');
+        ScheduledBlock::create([
+            'task_id' => $task->id,
+            'start_at' => Carbon::parse('2026-06-22 09:00:00'),
+            'end_at' => Carbon::parse('2026-06-22 09:30:00'),
+            'minutes' => 30,
+        ]);
+        $payload = [
+            'project_id' => $project->id,
+            'title' => $task->title,
+            'duration_minutes' => 30,
+            'priority' => 3,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'status' => 'done',
+        ];
+
+        $response = $this->putJson("/planner-api/tasks/{$task->id}", $payload)->assertOk();
+        $this->assertSame(
+            '2026-06-22 09:00:00',
+            Carbon::parse($response->json('tasks.0.worked_at'))
+                ->setTimezone(config('app.timezone'))
+                ->format('Y-m-d H:i:s'),
+        );
+
+        $this->assertSame('2026-06-24 15:00:00', $task->refresh()->completed_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-06-22 09:00:00', $task->worked_at->format('Y-m-d H:i:s'));
+
+        Carbon::setTestNow(Carbon::parse('2026-06-25 10:00:00'));
+        $this->putJson("/planner-api/tasks/{$task->id}", $payload)->assertOk();
+        $this->assertSame('2026-06-22 09:00:00', $task->refresh()->worked_at->format('Y-m-d H:i:s'));
     }
 
     public function test_bootstrap_includes_calendar_events_older_than_one_week(): void

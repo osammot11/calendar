@@ -77,6 +77,9 @@ class PlannerController extends Controller
         $attributes = $this->validateTask($request);
         $attributes['completed_at'] = $attributes['status'] === 'done' ? now() : null;
         $task = Task::create($attributes);
+        if ($task->status === 'done') {
+            $task->update(['worked_at' => $this->workedAtFor($task)]);
+        }
         $this->scheduler->scheduleTask($task);
 
         return $this->bootstrap();
@@ -87,6 +90,9 @@ class PlannerController extends Controller
         $attributes = $this->validateTask($request);
         $attributes['completed_at'] = $attributes['status'] === 'done'
             ? ($task->completed_at ?? now())
+            : null;
+        $attributes['worked_at'] = $attributes['status'] === 'done'
+            ? ($task->worked_at ?? $this->workedAtFor($task))
             : null;
         $task->update($attributes);
         $this->scheduler->scheduleTask($task);
@@ -193,6 +199,7 @@ class PlannerController extends Controller
         $scheduledBlock->task->update([
             'status' => 'done',
             'completed_at' => now(),
+            'worked_at' => $scheduledBlock->task->worked_at ?? $this->workedAtFor($scheduledBlock->task, $scheduledBlock),
         ]);
 
         return $this->bootstrap();
@@ -203,6 +210,7 @@ class PlannerController extends Controller
         $scheduledBlock->task->update([
             'status' => 'open',
             'completed_at' => null,
+            'worked_at' => null,
             'is_pinned' => false,
             'pinned_start_at' => null,
         ]);
@@ -220,6 +228,13 @@ class PlannerController extends Controller
             'priority' => ['required', 'integer', 'between:1,5'],
             'deadline' => ['nullable', 'date'],
         ]);
+    }
+
+    private function workedAtFor(Task $task, ?ScheduledBlock $block = null): \Carbon\CarbonInterface
+    {
+        $block ??= $task->scheduledBlocks()->orderBy('start_at')->first();
+
+        return $block && $block->start_at->lte(now()) ? $block->start_at : now();
     }
 
     private function validateTask(Request $request): array
