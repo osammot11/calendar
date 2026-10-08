@@ -151,3 +151,45 @@ Stato servizi:
 systemctl status nginx --no-pager
 systemctl status php8.4-fpm --no-pager
 ```
+
+## 6. Integrazione ChatGPT con OAuth Laravel
+
+Il server MCP e servito direttamente da Laravel su `https://calendar.tommasogiovannoni.com/mcp/calendar`. Usa il login gia presente e Laravel Passport per OAuth con PKCE. Non servono Auth0, un servizio Node o un secondo virtual host Nginx.
+
+Al primo deploy di questa integrazione, verifica nel `.env` sulla VPS:
+
+```env
+APP_URL=https://calendar.tommasogiovannoni.com
+```
+
+Poi esegui come `root`:
+
+```bash
+cd /var/www/calendar
+git pull origin main
+composer install --no-dev --optimize-autoloader
+composer audit --no-dev
+php artisan migrate --force
+php artisan passport:keys
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+chown -R www-data:www-data storage bootstrap/cache database
+chmod -R ug+rw storage bootstrap/cache database
+systemctl reload php8.4-fpm
+```
+
+Le chiavi `storage/oauth-private.key` e `storage/oauth-public.key` vengono generate solo sulla VPS, sono ignorate da Git e vanno conservate nei backup. Non ripetere `passport:keys --force` su un'installazione gia collegata: invaliderebbe i token esistenti.
+
+Controlla che questi endpoint rispondano tramite HTTPS:
+
+```bash
+curl -i https://calendar.tommasogiovannoni.com/.well-known/oauth-protected-resource/mcp/calendar
+curl -i https://calendar.tommasogiovannoni.com/.well-known/oauth-authorization-server
+```
+
+Entrambi devono dare `200` con JSON. Se Nginx blocca `/.well-known/`, consenti questo prefisso nel server block Laravel prima della regola che nega i file nascosti, poi verifica con `nginx -t` e ricarica Nginx.
+
+In ChatGPT web, aggiungi un server MCP personalizzato con URL `https://calendar.tommasogiovannoni.com/mcp/calendar` e autenticazione OAuth senza Client ID/Secret statici (registrazione dinamica). Al primo utilizzo, accedi con l'account del calendario e approva il consenso. Il redirect di ChatGPT viene riconosciuto automaticamente purche resti sul dominio `https://chatgpt.com`.
+
+Per le release successive basta la normale procedura di aggiornamento in alto. Non rigenerare le chiavi Passport.
