@@ -83,13 +83,14 @@ const {
                             Massima
                         </span>
                         <span v-if="task.is_pinned" class="chip">Fissata</span>
+                        <span v-if="task.recurring_event_id" class="chip">Ricorrente</span>
                         <span class="chip">
                             {{ task.status === "done" ? "Completata" : "Aperta" }}
                         </span>
                     </div>
                     <small>
-                        {{ durationLabel(task.duration_minutes) }} · priorita
-                        {{ task.priority }}/5
+                        {{ durationLabel(task.duration_minutes) }}
+                        <template v-if="!task.recurring_event_id"> · priorita {{ task.priority }}/5</template>
                         <span v-if="task.deadline">
                             · deadline {{ formatDate(task.deadline) }}
                         </span>
@@ -108,7 +109,7 @@ const {
                         <small>Nessuno slot continuo disponibile</small>
                     </template>
                 </div>
-                <button class="icon-button" title="Modifica task" :aria-label="'Modifica ' + task.title" @click="openTask(task)">
+                <button class="icon-button" :title="task.recurring_event_id ? 'Modifica serie' : 'Modifica task'" :aria-label="'Modifica ' + task.title" @click="openTask(task)">
                     <Pencil :size="18" />
                 </button>
             </article>

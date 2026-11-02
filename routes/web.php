@@ -32,9 +32,14 @@ Route::middleware('auth')->group(function () {
         Route::put('/projects/{project}', [PlannerController::class, 'updateProject']);
         Route::delete('/projects/{project}', [PlannerController::class, 'deleteProject']);
 
+        Route::post('/recurring-events', [PlannerController::class, 'storeRecurringEvent']);
+        Route::put('/recurring-events/{recurringEvent}', [PlannerController::class, 'updateRecurringEvent']);
+        Route::delete('/recurring-events/{recurringEvent}', [PlannerController::class, 'deleteRecurringEvent']);
+
         Route::post('/tasks', [PlannerController::class, 'storeTask']);
         Route::put('/tasks/{task}', [PlannerController::class, 'updateTask']);
         Route::delete('/tasks/{task}', [PlannerController::class, 'deleteTask']);
+        Route::post('/tasks/{task}/complete', [PlannerController::class, 'completeTask']);
 
         Route::post('/busy-blocks', [PlannerController::class, 'storeBusyBlock']);
         Route::put('/busy-blocks/{busyBlock}', [PlannerController::class, 'updateBusyBlock']);

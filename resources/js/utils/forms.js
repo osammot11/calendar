@@ -36,6 +36,21 @@ export function blankProject() {
     };
 }
 
+export function blankRecurring(projects = []) {
+    return {
+        id: null,
+        project_id: projects[0]?.id ?? "",
+        title: "",
+        description: "",
+        duration_minutes: 60,
+        start_mode: "fixed",
+        starts_at: toDateTimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
+        latest_start_time: "",
+        interval_count: 1,
+        interval_unit: "days",
+    };
+}
+
 export function today() {
     return new Date().toISOString().slice(0, 10);
 }

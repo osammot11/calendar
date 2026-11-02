@@ -2,6 +2,7 @@ import { computed, onMounted, ref } from "vue";
 import { getCsrfToken, plannerRequest } from "../api/plannerApi";
 import {
     blankProject,
+    blankRecurring,
     blankTask,
     toDateTimeInput,
     toDateTimeLocal,
@@ -18,6 +19,7 @@ import {
 const initialData = () => ({
     user: null,
     projects: [],
+    recurringEvents: [],
     tasks: [],
     workSchedules: [],
     dateOverrides: [],
@@ -61,6 +63,7 @@ export function usePlanner() {
     const activePanel = ref("overview");
     const modal = ref(null);
     const taskForm = ref(blankTask());
+    const recurringForm = ref(blankRecurring());
     const projectForm = ref(blankProject());
     const busyForm = ref({
         title: "",
@@ -84,6 +87,21 @@ export function usePlanner() {
     const maxPriorityTasks = computed(() =>
         openTasks.value.filter((task) => task.is_max_priority),
     );
+    const overviewTasks = computed(() => {
+        const nextBySeries = new Map();
+        for (const task of openTasks.value) {
+            if (!task.recurring_event_id) continue;
+            const current = nextBySeries.get(task.recurring_event_id);
+            if (!current || task.recurrence_at < current.recurrence_at) {
+                nextBySeries.set(task.recurring_event_id, task);
+            }
+        }
+        return openTasks.value.filter(
+            (task) =>
+                !task.recurring_event_id ||
+                nextBySeries.get(task.recurring_event_id)?.id === task.id,
+        );
+    });
     const projectMap = computed(() =>
         Object.fromEntries(
             data.value.projects.map((project) => [project.id, project]),
@@ -245,6 +263,15 @@ export function usePlanner() {
     }
 
     function openTask(task = null) {
+        if (task?.recurring_event_id) {
+            const series = data.value.recurringEvents.find(
+                (item) => item.id === task.recurring_event_id,
+            );
+            if (series) {
+                openRecurring(series);
+                return;
+            }
+        }
         taskForm.value = task
             ? {
                   ...task,
@@ -257,6 +284,22 @@ export function usePlanner() {
               }
             : blankTask(data.value.projects);
         modal.value = "task";
+    }
+
+    function openRecurring(series = null) {
+        recurringForm.value = series
+            ? {
+                  ...series,
+                  starts_at: toDateTimeInput(series.starts_at),
+                  latest_start_time: series.latest_start_time?.slice(0, 5) || "",
+              }
+            : {
+                  ...blankRecurring(data.value.projects),
+                  project_id: activePanel.value === "projectDetail" && selectedProject.value
+                      ? selectedProject.value.id
+                      : data.value.projects[0]?.id ?? "",
+              };
+        modal.value = "recurring";
     }
 
     function openTaskForProject(project) {
@@ -343,6 +386,11 @@ export function usePlanner() {
             end: event.end,
             props,
             task,
+            recurring: task?.recurring_event_id
+                ? data.value.recurringEvents.find(
+                      (item) => item.id === task.recurring_event_id,
+                  )
+                : null,
             busy,
         };
         modal.value = "eventDetails";
@@ -386,6 +434,36 @@ export function usePlanner() {
             body: JSON.stringify(payload),
         });
         closeModal();
+    }
+
+    async function saveRecurring() {
+        const payload = {
+            ...recurringForm.value,
+            project_id: Number(recurringForm.value.project_id),
+            duration_minutes: Number(recurringForm.value.duration_minutes),
+            interval_count: Number(recurringForm.value.interval_count),
+            latest_start_time: recurringForm.value.start_mode === "window"
+                ? recurringForm.value.latest_start_time
+                : null,
+        };
+        const url = payload.id
+            ? `/planner-api/recurring-events/${payload.id}`
+            : "/planner-api/recurring-events";
+
+        await api(url, {
+            method: payload.id ? "PUT" : "POST",
+            body: JSON.stringify(payload),
+        });
+        closeModal();
+    }
+
+    async function deleteRecurringFromModal() {
+        if (
+            recurringForm.value.id &&
+            (await destroy(`/planner-api/recurring-events/${recurringForm.value.id}`))
+        ) {
+            closeModal();
+        }
     }
 
     async function saveProject() {
@@ -491,6 +569,17 @@ export function usePlanner() {
         }
     }
 
+    async function completeSelectedEvent() {
+        const task = selectedCalendarEvent.value?.task;
+        if (!task || task.status !== "open") return;
+
+        await api(`/planner-api/tasks/${task.id}/complete`, {
+            method: "POST",
+            body: "{}",
+        });
+        closeModal();
+    }
+
     function editSelectedEvent() {
         if (!selectedCalendarEvent.value) {
             return;
@@ -559,6 +648,7 @@ export function usePlanner() {
         data,
         deleteBusyBlockFromModal,
         deleteSelectedEvent,
+        deleteRecurringFromModal,
         deleteTaskFromModal,
         destroy,
         deadlineBuckets,
@@ -570,6 +660,7 @@ export function usePlanner() {
         formatDateTime,
         loading,
         maxPriorityTasks,
+        overviewTasks,
         modal,
         openBusyBlock,
         openBusyBlockFromSelection,
@@ -578,6 +669,7 @@ export function usePlanner() {
         openDay,
         openProject,
         openProjectDetail,
+        openRecurring,
         openTask,
         openTaskForProject,
         openTasks,
@@ -585,12 +677,14 @@ export function usePlanner() {
         overrideRows,
         projectFor,
         projectForm,
+        recurringForm,
         projectTaskFilter,
         recalculate,
         reschedulePastEvent,
         saveBusyBlock,
         saveOverride,
         saveProject,
+        saveRecurring,
         saveSchedules,
         saveTask,
         saving,
@@ -599,6 +693,7 @@ export function usePlanner() {
         selectedProject,
         selectedProjectTaskCounts,
         selectedProjectTasks,
+        completeSelectedEvent,
         taskForm,
         taskSchedule,
     };

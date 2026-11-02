@@ -8,6 +8,7 @@ const {
     maxPriorityTasks,
     openTask,
     openTasks,
+    overviewTasks,
     projectFor,
 } = usePlannerContext();
 </script>
@@ -42,7 +43,7 @@ const {
                 <strong>Tutto in ordine</strong>
                 <span>Nessuna task aperta.</span>
             </div>
-            <article v-for="task in openTasks" :key="task.id" class="task-item">
+            <article v-for="task in overviewTasks" :key="task.id" class="task-item">
                 <button class="task-main" @click="openTask(task)">
                     <span
                         class="project-dot"
@@ -51,7 +52,7 @@ const {
                     <span>
                         <strong>{{ task.title }}</strong>
                         <small>
-                            {{ projectFor(task).name }} · P{{ task.priority }} ·
+                            {{ projectFor(task).name }} · {{ task.recurring_event_id ? "Ricorrente" : `P${task.priority}` }} ·
                             {{ durationLabel(task.duration_minutes) }}
                         </small>
                     </span>

@@ -54,7 +54,7 @@ class SchedulerService
                     $start = $this->eligibleStart($task, $slot);
                     $end = $start->copy()->addMinutes($minutes);
 
-                    if ($end->gt($this->eligibleEnd($task, $slot))) {
+                    if ($this->pastLatestRecurringStart($task, $start) || $end->gt($this->eligibleEnd($task, $slot))) {
                         continue;
                     }
 
@@ -89,7 +89,7 @@ class SchedulerService
 
     public function scheduleTask(Task $task): void
     {
-        $task->loadMissing('project');
+        $task->loadMissing('project', 'recurringEvent');
 
         ScheduledBlock::query()
             ->where('task_id', $task->id)
@@ -114,6 +114,11 @@ class SchedulerService
             return;
         }
 
+        if ($this->isFixedRecurring($task)) {
+            $this->scheduleFixedRecurringTask($task);
+            return;
+        }
+
         $minutes = $this->roundToSlot($task->duration_minutes);
         $weeks = self::MIN_WEEKS;
 
@@ -122,7 +127,7 @@ class SchedulerService
                 $start = $this->eligibleStart($task, $slot);
                 $end = $start->copy()->addMinutes($minutes);
 
-                if ($end->gt($this->eligibleEnd($task, $slot))) {
+                if ($this->pastLatestRecurringStart($task, $start) || $end->gt($this->eligibleEnd($task, $slot))) {
                     continue;
                 }
 
@@ -150,9 +155,11 @@ class SchedulerService
     private function schedulePinnedTasks(Collection $tasks): Collection
     {
         return $tasks
-            ->filter(fn (Task $task) => $task->is_pinned && $task->pinned_start_at)
+            ->filter(fn (Task $task) => ($task->is_pinned && $task->pinned_start_at) || $this->isFixedRecurring($task))
             ->map(function (Task $task) {
-                $block = $this->schedulePinnedTask($task);
+                $block = $this->isFixedRecurring($task)
+                    ? $this->scheduleFixedRecurringTask($task)
+                    : $this->schedulePinnedTask($task);
 
                 return [
                     'task_id' => $task->id,
@@ -178,16 +185,47 @@ class SchedulerService
         ]);
     }
 
+    private function scheduleFixedRecurringTask(Task $task): ScheduledBlock
+    {
+        $start = $task->recurrence_at->copy();
+
+        return ScheduledBlock::updateOrCreate(
+            ['task_id' => $task->id],
+            [
+                'start_at' => $start,
+                'end_at' => $start->copy()->addMinutes($this->roundToSlot($task->duration_minutes)),
+                'minutes' => $this->roundToSlot($task->duration_minutes),
+            ],
+        );
+    }
+
+    private function isFixedRecurring(Task $task): bool
+    {
+        return $task->recurrence_at && $task->recurringEvent?->start_mode === 'fixed';
+    }
+
+    private function pastLatestRecurringStart(Task $task, Carbon $start): bool
+    {
+        if (! $task->recurrence_at || $task->recurringEvent?->start_mode !== 'window') {
+            return false;
+        }
+
+        $latest = $task->recurrence_at->copy()->setTimeFromTimeString($task->recurringEvent->latest_start_time);
+
+        return $start->gt($latest);
+    }
+
     private function orderedTasks(Collection $excludedTaskIds): Collection
     {
         return Task::query()
-            ->with('project')
+            ->with('project', 'recurringEvent')
             ->where('status', 'open')
             ->whereNotIn('id', $excludedTaskIds)
             ->get()
             ->sort(function (Task $a, Task $b) {
                 foreach ([
                     $b->is_max_priority <=> $a->is_max_priority,
+                    (bool) $b->recurring_event_id <=> (bool) $a->recurring_event_id,
                     $this->projectDeadlineTimestamp($a) <=> $this->projectDeadlineTimestamp($b),
                     $this->taskDeadlineTimestamp($a) <=> $this->taskDeadlineTimestamp($b),
                     $b->project->priority <=> $a->project->priority,
@@ -280,6 +318,10 @@ class SchedulerService
     private function eligibleStart(Task $task, array $slot): Carbon
     {
         $start = $slot['start']->copy();
+
+        if ($task->recurrence_at && $task->recurrence_at->gt($start)) {
+            $start = $task->recurrence_at->copy();
+        }
 
         if ($task->earliest_start_time) {
             $earliest = Carbon::parse($start->toDateString().' '.$task->earliest_start_time);

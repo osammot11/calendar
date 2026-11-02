@@ -1,9 +1,9 @@
 <script setup>
 import { computed } from "vue";
-import { Plus, RefreshCw, LogOut } from "@lucide/vue";
+import { Plus, RefreshCw, LogOut, Repeat2 } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
-const { activePanel, csrfToken, recalculate, saving, openContextualTask } = usePlannerContext();
+const { activePanel, csrfToken, recalculate, saving, openContextualTask, openRecurring } = usePlannerContext();
 const title = computed(() => ({
     overview: "Il tuo calendario", deadlines: "Scadenze", projects: "I tuoi progetti",
     projectDetail: "Dettaglio progetto", analytics: "Analytics", pastEvents: "Eventi passati", settings: "Impostazioni", day: "La tua giornata",
@@ -22,6 +22,9 @@ const title = computed(() => ({
             </button>
             <button class="button filled header-create" @click="openContextualTask">
                 <Plus :size="18" /> Nuova task
+            </button>
+            <button class="button outlined header-create" @click="openRecurring()">
+                <Repeat2 :size="18" /> Ricorrente
             </button>
             <form method="post" action="/logout">
                 <input type="hidden" name="_token" :value="csrfToken" />

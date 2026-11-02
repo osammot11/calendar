@@ -26,6 +26,8 @@ class Task extends Model
         'status',
         'completed_at',
         'worked_at',
+        'recurring_event_id',
+        'recurrence_at',
     ];
 
     protected function casts(): array
@@ -39,6 +41,7 @@ class Task extends Model
             'pinned_start_at' => 'datetime',
             'completed_at' => 'datetime',
             'worked_at' => 'datetime',
+            'recurrence_at' => 'datetime',
         ];
     }
 
@@ -50,5 +53,10 @@ class Task extends Model
     public function scheduledBlocks(): HasMany
     {
         return $this->hasMany(ScheduledBlock::class);
+    }
+
+    public function recurringEvent(): BelongsTo
+    {
+        return $this->belongsTo(RecurringEvent::class);
     }
 }

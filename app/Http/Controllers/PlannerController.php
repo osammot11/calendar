@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\BusyBlock;
 use App\Models\DateWorkOverride;
 use App\Models\Project;
+use App\Models\RecurringEvent;
 use App\Models\ScheduledBlock;
 use App\Models\Task;
 use App\Models\WorkSchedule;
 use App\Services\SchedulerService;
+use App\Services\RecurringEventService;
 use App\Services\TaskInput;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,6 +25,7 @@ class PlannerController extends Controller
     public function __construct(
         private readonly SchedulerService $scheduler,
         private readonly TaskInput $taskInput,
+        private readonly RecurringEventService $recurringEvents,
     ) {}
 
     public function app(): View
@@ -31,13 +35,15 @@ class PlannerController extends Controller
 
     public function bootstrap(): JsonResponse
     {
-        if (Task::query()->where('status', 'open')->exists() && ScheduledBlock::query()->doesntExist()) {
+        $generated = $this->recurringEvents->sync();
+        if ($generated || (Task::query()->where('status', 'open')->exists() && ScheduledBlock::query()->doesntExist())) {
             $this->scheduler->recalculate();
         }
 
         return response()->json([
             'user' => Auth::user()->only(['name', 'email']),
             'projects' => Project::query()->orderByDesc('priority')->orderBy('name')->get(),
+            'recurringEvents' => RecurringEvent::query()->orderBy('title')->get(),
             'tasks' => Task::query()->with('project')->latest()->get(),
             'workSchedules' => WorkSchedule::query()->orderBy('weekday')->orderBy('start_time')->get(),
             'dateOverrides' => DateWorkOverride::query()->orderByDesc('date')->orderBy('start_time')->limit(60)->get(),
@@ -106,7 +112,61 @@ class PlannerController extends Controller
 
     public function deleteTask(Task $task): JsonResponse
     {
-        $task->delete();
+        if ($task->recurring_event_id) {
+            if ($task->status === 'done') {
+                throw ValidationException::withMessages(['task' => 'Un\'occorrenza completata non puo essere saltata.']);
+            }
+            $task->update(['status' => 'skipped']);
+            $task->scheduledBlocks()->delete();
+        } else {
+            $task->delete();
+        }
+
+        return $this->bootstrap();
+    }
+
+    public function storeRecurringEvent(Request $request): JsonResponse
+    {
+        $attributes = $this->validateRecurringEvent($request);
+        $series = RecurringEvent::create([
+            ...$attributes,
+            'next_at' => $attributes['starts_at'],
+            'next_index' => 0,
+        ]);
+        $this->recurringEvents->syncSeries($series->id);
+        $this->scheduler->recalculate();
+
+        return $this->bootstrap();
+    }
+
+    public function updateRecurringEvent(Request $request, RecurringEvent $recurringEvent): JsonResponse
+    {
+        $this->recurringEvents->updateSeries($recurringEvent, $this->validateRecurringEvent($request));
+        $this->recurringEvents->syncSeries($recurringEvent->id);
+        $this->scheduler->recalculate();
+
+        return $this->bootstrap();
+    }
+
+    public function deleteRecurringEvent(RecurringEvent $recurringEvent): JsonResponse
+    {
+        $this->recurringEvents->stopSeries($recurringEvent);
+        $this->scheduler->recalculate();
+
+        return $this->bootstrap();
+    }
+
+    public function completeTask(Task $task): JsonResponse
+    {
+        if ($task->status === 'open') {
+            $block = $task->scheduledBlocks()->orderBy('start_at')->first();
+            $task->update([
+                'status' => 'done',
+                'completed_at' => now(),
+                'worked_at' => $block && $block->start_at->lte(now()) ? $block->start_at : now(),
+            ]);
+            $this->scheduler->scheduleTask($task);
+        }
 
         return $this->bootstrap();
     }
@@ -211,6 +271,25 @@ class PlannerController extends Controller
 
     public function reschedulePastEvent(ScheduledBlock $scheduledBlock): JsonResponse
     {
+        if ($scheduledBlock->task->recurring_event_id) {
+            $original = $scheduledBlock->task;
+            $original->update(['status' => 'skipped']);
+            $scheduledBlock->delete();
+            $task = Task::create([
+                'project_id' => $original->project_id,
+                'title' => $original->title,
+                'description' => $original->description,
+                'duration_minutes' => $original->duration_minutes,
+                'priority' => 3,
+                'is_max_priority' => false,
+                'is_pinned' => false,
+                'status' => 'open',
+            ]);
+            $this->scheduler->scheduleTask($task);
+
+            return $this->bootstrap();
+        }
+
         $scheduledBlock->task->update([
             'status' => 'open',
             'completed_at' => null,
@@ -232,6 +311,32 @@ class PlannerController extends Controller
             'priority' => ['required', 'integer', 'between:1,5'],
             'deadline' => ['nullable', 'date'],
         ]);
+    }
+
+    private function validateRecurringEvent(Request $request): array
+    {
+        $attributes = $request->validate([
+            'project_id' => ['required', Rule::exists('projects', 'id')],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'duration_minutes' => ['required', 'integer', 'min:5', 'max:2400', 'multiple_of:5'],
+            'start_mode' => ['required', Rule::in(['fixed', 'window'])],
+            'starts_at' => ['required', 'date'],
+            'latest_start_time' => ['nullable', 'required_if:start_mode,window', 'prohibited_if:start_mode,fixed', 'date_format:H:i'],
+            'interval_count' => ['required', 'integer', 'min:1', 'max:365'],
+            'interval_unit' => ['required', Rule::in(['hours', 'days', 'weeks', 'months'])],
+        ]);
+
+        if (
+            $attributes['start_mode'] === 'window'
+            && $attributes['latest_start_time'] <= Carbon::parse($attributes['starts_at'])->format('H:i')
+        ) {
+            throw ValidationException::withMessages([
+                'latest_start_time' => 'La fine della fascia deve essere successiva all\'inizio.',
+            ]);
+        }
+
+        return $attributes;
     }
 
     private function workedAtFor(Task $task, ?ScheduledBlock $block = null): \Carbon\CarbonInterface
@@ -301,6 +406,8 @@ class PlannerController extends Controller
                     'duration_minutes' => $block->task->duration_minutes,
                     'deadline' => $block->task->deadline?->toDateString(),
                     'status' => $block->task->status,
+                    'recurring_event_id' => $block->task->recurring_event_id,
+                    'recurrence_at' => $block->task->recurrence_at?->toIso8601String(),
                 ],
             ]);
 

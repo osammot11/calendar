@@ -1,9 +1,11 @@
 <script setup>
+import { computed } from "vue";
 import { X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
     closeModal,
+    completeSelectedEvent,
     deleteSelectedEvent,
     durationLabel,
     editSelectedEvent,
@@ -11,6 +13,27 @@ const {
     projectFor,
     selectedCalendarEvent,
 } = usePlannerContext();
+
+const recurrenceLabel = computed(() => {
+    const series = selectedCalendarEvent.value?.recurring;
+    if (!series) return "";
+    const units = {
+        hours: ["ora", "ore"],
+        days: ["giorno", "giorni"],
+        weeks: ["settimana", "settimane"],
+        months: ["mese", "mesi"],
+    };
+    const unit = units[series.interval_unit] || [series.interval_unit, series.interval_unit];
+    return `Ogni ${series.interval_count} ${unit[series.interval_count === 1 ? 0 : 1]}`;
+});
+const recurrenceStartTime = computed(() => {
+    const value = selectedCalendarEvent.value?.task?.recurrence_at;
+    if (!value) return "";
+    return new Intl.DateTimeFormat("it-IT", {
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(new Date(value));
+});
 </script>
 
 <template>
@@ -20,7 +43,7 @@ const {
                 <p class="eyebrow">
                     {{
                         selectedCalendarEvent.type === "task"
-                            ? "Task schedulata"
+                            ? selectedCalendarEvent.recurring ? "Occorrenza ricorrente" : "Task schedulata"
                             : "Blocco occupato"
                     }}
                 </p>
@@ -52,6 +75,18 @@ const {
                         {{ projectFor(selectedCalendarEvent.task).name }}
                     </strong>
                 </div>
+                <div v-if="selectedCalendarEvent.recurring">
+                    <span>Ricorrenza</span>
+                    <strong>{{ recurrenceLabel }}</strong>
+                </div>
+                <div v-if="selectedCalendarEvent.recurring?.start_mode === 'window'">
+                    <span>Inizio consentito</span>
+                    <strong>
+                        {{ recurrenceStartTime }}
+                        -
+                        {{ selectedCalendarEvent.recurring.latest_start_time.slice(0, 5) }}
+                    </strong>
+                </div>
                 <div>
                     <span>Durata totale</span>
                     <strong>
@@ -62,13 +97,13 @@ const {
                         }}
                     </strong>
                 </div>
-                <div>
+                <div v-if="!selectedCalendarEvent.recurring">
                     <span>Priorita task</span>
                     <strong>
                         {{ selectedCalendarEvent.task.priority }}/5
                     </strong>
                 </div>
-                <div>
+                <div v-if="!selectedCalendarEvent.recurring">
                     <span>Deadline</span>
                     <strong>
                         {{ selectedCalendarEvent.task.deadline || "Nessuna" }}
@@ -84,7 +119,7 @@ const {
                         }}
                     </strong>
                 </div>
-                <div>
+                <div v-if="!selectedCalendarEvent.recurring">
                     <span>Priorita massima</span>
                     <strong>
                         {{
@@ -94,7 +129,7 @@ const {
                         }}
                     </strong>
                 </div>
-                <div>
+                <div v-if="!selectedCalendarEvent.recurring">
                     <span>Fissata</span>
                     <strong>
                         {{
@@ -129,11 +164,18 @@ const {
 
         <div class="dialog-actions">
             <button
+                v-if="selectedCalendarEvent.task?.status === 'open'"
+                class="button text"
+                type="button"
+                @click="completeSelectedEvent"
+            >Completa</button>
+            <button
+                v-if="!selectedCalendarEvent.recurring || selectedCalendarEvent.task?.status !== 'done'"
                 class="button text danger"
                 type="button"
                 @click="deleteSelectedEvent"
             >
-                Elimina
+                {{ selectedCalendarEvent.recurring ? "Salta questa" : "Elimina" }}
             </button>
             <button class="button text" type="button" @click="closeModal">
                 Annulla
@@ -143,7 +185,7 @@ const {
                 type="button"
                 @click="editSelectedEvent"
             >
-                Modifica
+                {{ selectedCalendarEvent.recurring ? "Modifica serie" : "Modifica" }}
             </button>
         </div>
     </section>
