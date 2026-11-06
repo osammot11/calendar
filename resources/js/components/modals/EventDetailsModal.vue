@@ -1,6 +1,6 @@
 <script setup>
-import { computed } from "vue";
-import { X } from "@lucide/vue";
+import { computed, ref } from "vue";
+import { Pencil, X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -11,8 +11,39 @@ const {
     editSelectedEvent,
     formatDateTime,
     projectFor,
+    saveCompletedDuration,
+    saving,
     selectedCalendarEvent,
 } = usePlannerContext();
+
+const editingDuration = ref(false);
+const editedMinutes = ref(60);
+const hourOptions = Array.from({ length: 41 }, (_, hour) => hour);
+const minuteOptions = Array.from({ length: 12 }, (_, index) => index * 5);
+const durationHours = computed({
+    get: () => Math.floor(editedMinutes.value / 60),
+    set: (hours) => setDuration(Number(hours), durationMinutes.value),
+});
+const durationMinutes = computed({
+    get: () => editedMinutes.value % 60,
+    set: (minutes) => setDuration(durationHours.value, Number(minutes)),
+});
+
+function setDuration(hours, minutes) {
+    editedMinutes.value = Math.min(2400, Math.max(5, hours * 60 + minutes));
+}
+
+function startDurationEdit() {
+    editedMinutes.value = Number(
+        selectedCalendarEvent.value?.props?.block_minutes ||
+        selectedCalendarEvent.value?.task?.duration_minutes || 60,
+    );
+    editingDuration.value = true;
+}
+
+async function submitDuration() {
+    await saveCompletedDuration(editedMinutes.value);
+}
 
 const recurrenceLabel = computed(() => {
     const series = selectedCalendarEvent.value?.recurring;
@@ -88,14 +119,48 @@ const recurrenceStartTime = computed(() => {
                     </strong>
                 </div>
                 <div>
-                    <span>Durata totale</span>
-                    <strong>
+                    <span>{{ selectedCalendarEvent.task.status === "done" ? "Durata effettiva" : "Durata totale" }}</span>
+                    <div class="detail-duration-value">
+                        <strong>
                         {{
                             durationLabel(
-                                selectedCalendarEvent.task.duration_minutes,
+                                selectedCalendarEvent.props.block_minutes || selectedCalendarEvent.task.duration_minutes,
                             )
                         }}
-                    </strong>
+                        </strong>
+                        <button
+                            v-if="selectedCalendarEvent.task.status === 'done'"
+                            class="icon-button"
+                            type="button"
+                            title="Modifica durata effettiva"
+                            aria-label="Modifica durata effettiva"
+                            @click="startDurationEdit"
+                        ><Pencil :size="17" /></button>
+                    </div>
+                </div>
+                <div v-if="editingDuration" class="detail-wide completed-duration-editor">
+                    <form @submit.prevent="submitDuration">
+                        <div class="duration-selectors">
+                            <label>
+                                <span>Ore</span>
+                                <select v-model="durationHours" aria-label="Ore lavorate">
+                                    <option v-for="hour in hourOptions" :key="hour" :value="hour">{{ hour }}</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>Minuti</span>
+                                <select v-model="durationMinutes" aria-label="Minuti lavorati">
+                                    <option v-for="minute in minuteOptions" :key="minute" :value="minute" :disabled="durationHours === 40 && minute > 0">
+                                        {{ String(minute).padStart(2, "0") }}
+                                    </option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="completed-duration-actions">
+                            <button class="button text" type="button" @click="editingDuration = false">Annulla</button>
+                            <button class="button filled" type="submit" :disabled="saving">Salva durata</button>
+                        </div>
+                    </form>
                 </div>
                 <div v-if="!selectedCalendarEvent.recurring">
                     <span>Priorita task</span>

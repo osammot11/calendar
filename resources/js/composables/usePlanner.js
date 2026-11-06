@@ -580,6 +580,18 @@ export function usePlanner() {
         closeModal();
     }
 
+    async function saveCompletedDuration(minutes) {
+        const blockId = selectedCalendarEvent.value?.props?.scheduled_block_id;
+        if (!blockId) return;
+
+        await api(`/planner-api/scheduled-blocks/${blockId}/completed-duration`, {
+            method: "PATCH",
+            body: JSON.stringify({ duration_minutes: Number(minutes) }),
+        });
+        closeModal();
+        selectedCalendarEvent.value = null;
+    }
+
     function editSelectedEvent() {
         if (!selectedCalendarEvent.value) {
             return;
@@ -682,6 +694,7 @@ export function usePlanner() {
         recalculate,
         reschedulePastEvent,
         saveBusyBlock,
+        saveCompletedDuration,
         saveOverride,
         saveProject,
         saveRecurring,

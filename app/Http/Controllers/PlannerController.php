@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -104,8 +105,18 @@ class PlannerController extends Controller
         $attributes['worked_at'] = $attributes['status'] === 'done'
             ? ($task->worked_at ?? $this->workedAtFor($task))
             : null;
-        $task->update($attributes);
-        $this->scheduler->scheduleTask($task);
+        DB::transaction(function () use ($task, $attributes): void {
+            if ($attributes['status'] === 'done') {
+                $this->validateCompletedDuration($task, $attributes['duration_minutes']);
+            }
+
+            $task->update($attributes);
+            $this->scheduler->scheduleTask($task);
+
+            if ($task->status === 'done') {
+                $this->resizeLastCompletedBlock($task);
+            }
+        });
 
         return $this->bootstrap();
     }
@@ -167,6 +178,35 @@ class PlannerController extends Controller
             ]);
             $this->scheduler->scheduleTask($task);
         }
+
+        return $this->bootstrap();
+    }
+
+    public function updateCompletedDuration(Request $request, ScheduledBlock $scheduledBlock): JsonResponse
+    {
+        $validated = $request->validate([
+            'duration_minutes' => ['required', 'integer', 'min:5', 'max:2400', 'multiple_of:5'],
+        ]);
+
+        DB::transaction(function () use ($scheduledBlock, $validated): void {
+            $task = $scheduledBlock->task;
+            if ($task->status !== 'done') {
+                throw ValidationException::withMessages([
+                    'duration_minutes' => 'La durata effettiva si puo modificare solo per eventi completati.',
+                ]);
+            }
+
+            $otherMinutes = $task->scheduledBlocks()->whereKeyNot($scheduledBlock->id)->sum('minutes');
+            $totalMinutes = $otherMinutes + $validated['duration_minutes'];
+            if ($totalMinutes > 2400) {
+                throw ValidationException::withMessages([
+                    'duration_minutes' => 'La durata totale non puo superare 40 ore.',
+                ]);
+            }
+
+            $task->update(['duration_minutes' => $totalMinutes]);
+            $this->resizeBlock($scheduledBlock, $validated['duration_minutes']);
+        });
 
         return $this->bootstrap();
     }
@@ -346,6 +386,40 @@ class PlannerController extends Controller
         return $block && $block->start_at->lte(now()) ? $block->start_at : now();
     }
 
+    private function validateCompletedDuration(Task $task, int $totalMinutes): void
+    {
+        $lastBlock = $task->scheduledBlocks()->orderByDesc('start_at')->first();
+        if (! $lastBlock) {
+            return;
+        }
+
+        $otherMinutes = $task->scheduledBlocks()->whereKeyNot($lastBlock->id)->sum('minutes');
+        if ($totalMinutes - $otherMinutes < 5) {
+            throw ValidationException::withMessages([
+                'duration_minutes' => 'La durata deve coprire anche gli altri blocchi gia registrati.',
+            ]);
+        }
+    }
+
+    private function resizeLastCompletedBlock(Task $task): void
+    {
+        $lastBlock = $task->scheduledBlocks()->orderByDesc('start_at')->first();
+        if (! $lastBlock) {
+            return;
+        }
+
+        $otherMinutes = $task->scheduledBlocks()->whereKeyNot($lastBlock->id)->sum('minutes');
+        $this->resizeBlock($lastBlock, $task->duration_minutes - $otherMinutes);
+    }
+
+    private function resizeBlock(ScheduledBlock $block, int $minutes): void
+    {
+        $block->update([
+            'minutes' => $minutes,
+            'end_at' => $block->start_at->copy()->addMinutes($minutes),
+        ]);
+    }
+
     private function validateTask(Request $request): array
     {
         return $this->taskInput->validate($request->all());
@@ -404,6 +478,7 @@ class PlannerController extends Controller
                     'pinned_start_at' => $block->task->pinned_start_at?->toIso8601String(),
                     'description' => $block->task->description,
                     'duration_minutes' => $block->task->duration_minutes,
+                    'block_minutes' => $block->minutes,
                     'deadline' => $block->task->deadline?->toDateString(),
                     'status' => $block->task->status,
                     'recurring_event_id' => $block->task->recurring_event_id,

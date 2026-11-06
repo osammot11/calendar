@@ -40,6 +40,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/tasks/{task}', [PlannerController::class, 'updateTask']);
         Route::delete('/tasks/{task}', [PlannerController::class, 'deleteTask']);
         Route::post('/tasks/{task}/complete', [PlannerController::class, 'completeTask']);
+        Route::patch('/scheduled-blocks/{scheduledBlock}/completed-duration', [PlannerController::class, 'updateCompletedDuration']);
 
         Route::post('/busy-blocks', [PlannerController::class, 'storeBusyBlock']);
         Route::put('/busy-blocks/{busyBlock}', [PlannerController::class, 'updateBusyBlock']);

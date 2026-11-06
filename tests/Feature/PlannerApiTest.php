@@ -298,6 +298,95 @@ class PlannerApiTest extends TestCase
         $this->assertSame('2026-06-22 09:00:00', $task->refresh()->worked_at->format('Y-m-d H:i:s'));
     }
 
+    public function test_completed_duration_updates_analytics_and_calendar_without_moving_other_events(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 15:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create(['name' => 'Analytics', 'color' => '#006a6a', 'priority' => 3]);
+        $task = $this->openTask($project, 'Evento concluso');
+        $task->update(['status' => 'done', 'worked_at' => '2026-06-22 09:00:00', 'completed_at' => now()]);
+        $block = ScheduledBlock::create([
+            'task_id' => $task->id,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 10:00:00',
+            'minutes' => 60,
+        ]);
+        $otherTask = $this->openTask($project, 'Altro evento');
+        $otherBlock = ScheduledBlock::create([
+            'task_id' => $otherTask->id,
+            'start_at' => '2026-06-22 11:00:00',
+            'end_at' => '2026-06-22 12:00:00',
+            'minutes' => 60,
+        ]);
+
+        $response = $this->patchJson("/planner-api/scheduled-blocks/{$block->id}/completed-duration", [
+            'duration_minutes' => 90,
+        ])->assertOk();
+
+        $this->assertSame(90, $task->refresh()->duration_minutes);
+        $this->assertSame('2026-06-22 09:00:00', $task->worked_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-06-22 09:00:00', $block->refresh()->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-06-22 10:30:00', $block->end_at->format('Y-m-d H:i:s'));
+        $this->assertSame(90, $block->minutes);
+        $this->assertSame('2026-06-22 11:00:00', $otherBlock->refresh()->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame(90, collect($response->json('tasks'))->firstWhere('id', $task->id)['duration_minutes']);
+        $this->assertSame(90, collect($response->json('events'))->firstWhere('id', 'task-'.$block->id)['extendedProps']['block_minutes']);
+    }
+
+    public function test_completed_duration_rejects_open_tasks_and_invalid_minutes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 15:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create(['name' => 'Analytics', 'color' => '#006a6a', 'priority' => 3]);
+        $task = $this->openTask($project, 'Evento aperto');
+        $block = ScheduledBlock::create([
+            'task_id' => $task->id,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 10:00:00',
+            'minutes' => 60,
+        ]);
+
+        $this->patchJson("/planner-api/scheduled-blocks/{$block->id}/completed-duration", [
+            'duration_minutes' => 90,
+        ])->assertUnprocessable();
+
+        $task->update(['status' => 'done']);
+        $this->patchJson("/planner-api/scheduled-blocks/{$block->id}/completed-duration", [
+            'duration_minutes' => 92,
+        ])->assertUnprocessable();
+        $this->assertSame(60, $block->refresh()->minutes);
+    }
+
+    public function test_editing_a_completed_task_in_the_regular_form_resizes_its_past_block(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-24 15:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create(['name' => 'Analytics', 'color' => '#006a6a', 'priority' => 3]);
+        $task = $this->openTask($project, 'Evento concluso');
+        $task->update(['status' => 'done', 'worked_at' => '2026-06-22 09:00:00', 'completed_at' => now()]);
+        $block = ScheduledBlock::create([
+            'task_id' => $task->id,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 10:00:00',
+            'minutes' => 60,
+        ]);
+
+        $this->putJson("/planner-api/tasks/{$task->id}", [
+            'project_id' => $project->id,
+            'title' => $task->title,
+            'duration_minutes' => 45,
+            'priority' => 3,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'status' => 'done',
+        ])->assertOk();
+
+        $this->assertSame(45, $task->refresh()->duration_minutes);
+        $this->assertSame('2026-06-22 09:00:00', $task->worked_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-06-22 09:45:00', $block->refresh()->end_at->format('Y-m-d H:i:s'));
+        $this->assertSame(45, $block->minutes);
+    }
+
     public function test_bootstrap_includes_calendar_events_older_than_one_week(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-14 10:00:00'));
