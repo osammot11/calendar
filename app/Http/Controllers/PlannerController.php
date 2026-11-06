@@ -293,6 +293,7 @@ class PlannerController extends Controller
 
     public function recalculate(): JsonResponse
     {
+        $this->recurringEvents->sync();
         $this->scheduler->recalculate();
 
         return $this->bootstrap();

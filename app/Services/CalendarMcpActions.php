@@ -22,6 +22,7 @@ class CalendarMcpActions
     public function __construct(
         private readonly SchedulerService $scheduler,
         private readonly TaskInput $taskInput,
+        private readonly RecurringEventService $recurringEvents,
     ) {}
 
     public function projects(): array
@@ -152,6 +153,24 @@ class CalendarMcpActions
         }
 
         return ['task' => $this->taskDetails($task->load('project', 'scheduledBlocks'))];
+    }
+
+    public function recalculatePlanning(): array
+    {
+        $this->recurringEvents->sync();
+        $this->scheduler->recalculate();
+
+        return [
+            'recalculated' => true,
+            'scheduled_open_tasks' => Task::query()
+                ->where('status', 'open')
+                ->whereHas('scheduledBlocks', fn ($query) => $query->where('end_at', '>=', now()))
+                ->count(),
+            'unscheduled_open_tasks' => Task::query()
+                ->where('status', 'open')
+                ->whereDoesntHave('scheduledBlocks')
+                ->count(),
+        ];
     }
 
     private function taskDetails(Task $task): array

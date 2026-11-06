@@ -75,6 +75,7 @@ class CalendarMcpTest extends TestCase
         $this->assertTrue($names->contains('list_projects'));
         $this->assertTrue($names->contains('create_task'));
         $this->assertTrue($names->contains('complete_task'));
+        $this->assertTrue($names->contains('recalculate_planning'));
     }
 
     public function test_authenticated_mcp_can_create_and_complete_a_scheduled_task(): void
@@ -110,6 +111,80 @@ class CalendarMcpTest extends TestCase
             ->assertOk()->assertJsonPath('result.structuredContent.task.status', 'done');
 
         $this->assertSame('2026-06-22 09:00:00', $task->refresh()->worked_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_mcp_recalculates_future_tasks_without_moving_fixed_or_past_events(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 08:00:00'));
+        Passport::actingAs(User::factory()->create(), ['mcp:use']);
+        $project = Project::create(['name' => 'Lavoro', 'color' => '#006a6a', 'priority' => 3]);
+        WorkSchedule::create(['weekday' => 1, 'start_time' => '09:00', 'end_time' => '13:00']);
+
+        $low = Task::create([
+            'project_id' => $project->id,
+            'title' => 'Bassa',
+            'duration_minutes' => 60,
+            'priority' => 1,
+            'status' => 'open',
+        ]);
+        $high = Task::create([
+            'project_id' => $project->id,
+            'title' => 'Alta',
+            'duration_minutes' => 60,
+            'priority' => 5,
+            'status' => 'open',
+        ]);
+        $fixed = Task::create([
+            'project_id' => $project->id,
+            'title' => 'Fissata',
+            'duration_minutes' => 60,
+            'priority' => 1,
+            'is_pinned' => true,
+            'pinned_start_at' => '2026-06-22 11:00:00',
+            'status' => 'open',
+        ]);
+        $past = Task::create([
+            'project_id' => $project->id,
+            'title' => 'Passata',
+            'duration_minutes' => 60,
+            'priority' => 3,
+            'status' => 'open',
+        ]);
+        ScheduledBlock::create([
+            'task_id' => $low->id,
+            'start_at' => '2026-06-22 09:00:00',
+            'end_at' => '2026-06-22 10:00:00',
+            'minutes' => 60,
+        ]);
+        ScheduledBlock::create([
+            'task_id' => $high->id,
+            'start_at' => '2026-06-22 10:00:00',
+            'end_at' => '2026-06-22 11:00:00',
+            'minutes' => 60,
+        ]);
+        ScheduledBlock::create([
+            'task_id' => $fixed->id,
+            'start_at' => '2026-06-22 11:00:00',
+            'end_at' => '2026-06-22 12:00:00',
+            'minutes' => 60,
+        ]);
+        $pastBlock = ScheduledBlock::create([
+            'task_id' => $past->id,
+            'start_at' => '2026-06-19 09:00:00',
+            'end_at' => '2026-06-19 10:00:00',
+            'minutes' => 60,
+        ]);
+
+        $this->callTool('recalculate_planning', [])
+            ->assertOk()
+            ->assertJsonPath('result.structuredContent.recalculated', true)
+            ->assertJsonPath('result.structuredContent.scheduled_open_tasks', 3)
+            ->assertJsonPath('result.structuredContent.unscheduled_open_tasks', 0);
+
+        $this->assertSame('09:00', $high->scheduledBlocks()->firstOrFail()->start_at->format('H:i'));
+        $this->assertSame('10:00', $low->scheduledBlocks()->firstOrFail()->start_at->format('H:i'));
+        $this->assertSame('11:00', $fixed->scheduledBlocks()->firstOrFail()->start_at->format('H:i'));
+        $this->assertSame('2026-06-19 09:00:00', $pastBlock->refresh()->start_at->format('Y-m-d H:i:s'));
     }
 
     public function test_laravel_login_can_authorize_chatgpt_with_pkce_and_use_the_issued_token(): void
