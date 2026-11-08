@@ -25,7 +25,7 @@ class CalendarMcpTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_oauth_discovery_and_client_registration_are_limited_to_chatgpt(): void
+    public function test_oauth_discovery_and_client_registration_are_limited_to_approved_clients(): void
     {
         $this->getJson('/.well-known/oauth-protected-resource/mcp/calendar')
             ->assertOk()
@@ -48,12 +48,24 @@ class CalendarMcpTest extends TestCase
             'redirect_uris' => ['https://chatgpt.com.evil.example/callback'],
         ])->assertBadRequest();
 
+        $this->postJson('/oauth/register', [
+            'client_name' => 'Impostore',
+            'redirect_uris' => ['https://claude.ai.evil.example/callback'],
+        ])->assertBadRequest();
+
         $response = $this->postJson('/oauth/register', [
             'client_name' => 'ChatGPT',
             'redirect_uris' => ['https://chatgpt.com/connector_platform_oauth_redirect'],
         ])->assertCreated()->assertJsonPath('token_endpoint_auth_method', 'none');
 
         $this->assertDatabaseHas('oauth_clients', ['id' => $response->json('client_id')]);
+
+        $claude = $this->postJson('/oauth/register', [
+            'client_name' => 'Claude',
+            'redirect_uris' => ['https://claude.ai/api/mcp/auth_callback'],
+        ])->assertCreated()->assertJsonPath('token_endpoint_auth_method', 'none');
+
+        $this->assertDatabaseHas('oauth_clients', ['id' => $claude->json('client_id')]);
     }
 
     public function test_mcp_requires_a_passport_token_and_lists_tools_when_authenticated(): void
@@ -187,54 +199,58 @@ class CalendarMcpTest extends TestCase
         $this->assertSame('2026-06-19 09:00:00', $pastBlock->refresh()->start_at->format('Y-m-d H:i:s'));
     }
 
-    public function test_laravel_login_can_authorize_chatgpt_with_pkce_and_use_the_issued_token(): void
+    public function test_laravel_login_can_authorize_chatgpt_and_claude_with_pkce(): void
     {
-        $client = $this->postJson('/oauth/register', [
-            'client_name' => 'ChatGPT',
-            'redirect_uris' => ['https://chatgpt.com/connector_platform_oauth_redirect'],
-        ])->assertCreated()->json();
-
         $this->actingAs(User::factory()->create());
-        $verifier = Str::random(64);
-        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-        $redirectUri = 'https://chatgpt.com/connector_platform_oauth_redirect';
-        $query = http_build_query([
-            'response_type' => 'code',
-            'client_id' => $client['client_id'],
-            'redirect_uri' => $redirectUri,
-            'scope' => 'mcp:use',
-            'state' => 'test-state',
-            'code_challenge' => $challenge,
-            'code_challenge_method' => 'S256',
-            'resource' => url('/mcp/calendar'),
-        ]);
+        foreach ([
+            'ChatGPT' => 'https://chatgpt.com/connector_platform_oauth_redirect',
+            'Claude' => 'https://claude.ai/api/mcp/auth_callback',
+        ] as $name => $redirectUri) {
+            $client = $this->postJson('/oauth/register', [
+                'client_name' => $name,
+                'redirect_uris' => [$redirectUri],
+            ])->assertCreated()->json();
 
-        $consent = $this->get('/oauth/authorize?'.$query)->assertOk();
-        $this->assertStringContainsString('Collega ChatGPT', $consent->getContent());
-        preg_match('/name="auth_token" value="([^"]+)"/', $consent->getContent(), $matches);
-        $this->assertNotEmpty($matches[1] ?? null);
+            $verifier = Str::random(64);
+            $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+            $query = http_build_query([
+                'response_type' => 'code',
+                'client_id' => $client['client_id'],
+                'redirect_uri' => $redirectUri,
+                'scope' => 'mcp:use',
+                'state' => 'test-state',
+                'code_challenge' => $challenge,
+                'code_challenge_method' => 'S256',
+                'resource' => url('/mcp/calendar'),
+            ]);
 
-        $approval = $this->post('/oauth/authorize', [
-            'state' => '',
-            'client_id' => $client['client_id'],
-            'auth_token' => $matches[1],
-        ])->assertRedirect();
-        parse_str((string) parse_url($approval->headers->get('Location'), PHP_URL_QUERY), $callback);
-        $this->assertSame('test-state', $callback['state'] ?? null);
+            $consent = $this->get('/oauth/authorize?'.$query)->assertOk();
+            $this->assertStringContainsString('Collega '.$name, $consent->getContent());
+            preg_match('/name="auth_token" value="([^"]+)"/', $consent->getContent(), $matches);
+            $this->assertNotEmpty($matches[1] ?? null);
 
-        $token = $this->post('/oauth/token', [
-            'grant_type' => 'authorization_code',
-            'client_id' => $client['client_id'],
-            'redirect_uri' => $redirectUri,
-            'code' => $callback['code'],
-            'code_verifier' => $verifier,
-            'resource' => url('/mcp/calendar'),
-        ])->assertOk()->json('access_token');
+            $approval = $this->post('/oauth/authorize', [
+                'state' => '',
+                'client_id' => $client['client_id'],
+                'auth_token' => $matches[1],
+            ])->assertRedirect();
+            parse_str((string) parse_url($approval->headers->get('Location'), PHP_URL_QUERY), $callback);
+            $this->assertSame('test-state', $callback['state'] ?? null);
 
-        $this->withToken($token)
-            ->postJson('/mcp/calendar', $this->rpc('tools/list'))
-            ->assertOk()
-            ->assertJsonPath('result.tools.0.name', 'list_projects');
+            $token = $this->post('/oauth/token', [
+                'grant_type' => 'authorization_code',
+                'client_id' => $client['client_id'],
+                'redirect_uri' => $redirectUri,
+                'code' => $callback['code'],
+                'code_verifier' => $verifier,
+                'resource' => url('/mcp/calendar'),
+            ])->assertOk()->json('access_token');
+
+            $this->withToken($token)
+                ->postJson('/mcp/calendar', $this->rpc('tools/list'))
+                ->assertOk()
+                ->assertJsonPath('result.tools.0.name', 'list_projects');
+        }
     }
 
     public function test_mcp_can_create_and_update_a_fixed_appointment_and_read_the_agenda(): void

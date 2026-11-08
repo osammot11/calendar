@@ -193,3 +193,30 @@ Entrambi devono dare `200` con JSON. Se Nginx blocca `/.well-known/`, consenti q
 In ChatGPT web, aggiungi un server MCP personalizzato con URL `https://calendar.tommasogiovannoni.com/mcp/calendar` e autenticazione OAuth senza Client ID/Secret statici (registrazione dinamica). Al primo utilizzo, accedi con l'account del calendario e approva il consenso. Il redirect di ChatGPT viene riconosciuto automaticamente purche resti sul dominio `https://chatgpt.com`.
 
 Per le release successive basta la normale procedura di aggiornamento in alto. Non rigenerare le chiavi Passport.
+
+## 7. Collegare Claude al server MCP esistente
+
+Il server MCP Laravel e lo stesso usato da ChatGPT. Per pubblicare il supporto Claude, dopo il push esegui sulla VPS:
+
+```bash
+cd /var/www/calendar
+git pull origin main
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+chown -R www-data:www-data bootstrap/cache
+systemctl reload php8.4-fpm
+```
+
+Non servono nuove variabili `.env`, migrazioni, build frontend o chiavi Passport. Non rigenerare le chiavi OAuth.
+
+In Claude apri **Customize > Connectors > Add custom connector** e inserisci:
+
+```text
+Nome: Calendario Smart
+URL MCP: https://calendar.tommasogiovannoni.com/mcp/calendar
+Authentication: Sign in now
+OAuth client: Register automatically
+```
+
+Usa **Register automatically**, non **Use Claude's published identity**: questa app supporta la registrazione dinamica OAuth, non i client ID metadata document. Completa il login Laravel e autorizza l'accesso. Poi abilita il connettore nella chat dal menu **+ > Connectors**. L'endpoint deve essere raggiungibile pubblicamente da Claude via HTTPS.

@@ -3,6 +3,7 @@
 return [
     'redirect_domains' => [
         'https://chatgpt.com',
+        'https://claude.ai',
     ],
     'custom_schemes' => [],
     'authorization_server' => null,
