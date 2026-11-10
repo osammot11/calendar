@@ -18,6 +18,7 @@ class TaskFields
             'is_max_priority' => $schema->boolean(),
             'is_pinned' => $schema->boolean()->description('True per appuntamento fissato.'),
             'pinned_start_at' => $schema->string()->nullable()->description('Data e ora locale Europe/Rome nel formato YYYY-MM-DD HH:mm.'),
+            'earliest_start_date' => $schema->string()->nullable()->description('Prima data pianificabile YYYY-MM-DD, inclusa; solo task automatica.'),
             'earliest_start_time' => $schema->string()->nullable()->description('Ora HH:mm; solo task automatica.'),
             'latest_end_time' => $schema->string()->nullable()->description('Ora HH:mm; solo task automatica.'),
         ];

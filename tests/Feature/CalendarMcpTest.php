@@ -125,6 +125,32 @@ class CalendarMcpTest extends TestCase
         $this->assertSame('2026-06-22 09:00:00', $task->refresh()->worked_at->format('Y-m-d H:i:s'));
     }
 
+    public function test_mcp_can_set_and_update_an_earliest_start_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 08:00:00'));
+        Passport::actingAs(User::factory()->create(), ['mcp:use']);
+        $project = Project::create(['name' => 'Follow-up', 'color' => '#006a6a', 'priority' => 3]);
+        foreach ([1, 4, 5] as $weekday) {
+            WorkSchedule::create(['weekday' => $weekday, 'start_time' => '09:00', 'end_time' => '12:00']);
+        }
+
+        $this->callTool('create_task', [
+            'title' => 'Sentire il cliente',
+            'project_id' => $project->id,
+            'duration_minutes' => 30,
+            'earliest_start_date' => '2026-06-25',
+        ])->assertOk()->assertJsonPath('result.structuredContent.task.earliest_start_date', '2026-06-25');
+
+        $task = Task::query()->firstOrFail();
+        $this->assertSame('2026-06-25 09:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
+
+        $this->callTool('update_task', [
+            'task_id' => $task->id,
+            'earliest_start_date' => '2026-06-26',
+        ])->assertOk()->assertJsonPath('result.structuredContent.task.earliest_start_date', '2026-06-26');
+        $this->assertSame('2026-06-26 09:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
+    }
+
     public function test_mcp_recalculates_future_tasks_without_moving_fixed_or_past_events(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 08:00:00'));

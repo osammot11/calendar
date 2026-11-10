@@ -9,6 +9,7 @@ const {
     deleteSelectedEvent,
     durationLabel,
     editSelectedEvent,
+    formatDate,
     formatDateTime,
     projectFor,
     saveCompletedDuration,
@@ -206,6 +207,10 @@ const recurrenceStartTime = computed(() => {
                                 : "No"
                         }}
                     </strong>
+                </div>
+                <div v-if="selectedCalendarEvent.task.earliest_start_date">
+                    <span>Pianificabile dal</span>
+                    <strong>{{ formatDate(selectedCalendarEvent.task.earliest_start_date) }}</strong>
                 </div>
                 <div v-if="selectedCalendarEvent.task.earliest_start_time">
                     <span>Inizio non prima delle</span>

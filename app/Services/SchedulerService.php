@@ -319,6 +319,10 @@ class SchedulerService
     {
         $start = $slot['start']->copy();
 
+        if ($task->earliest_start_date && $task->earliest_start_date->copy()->startOfDay()->gt($start)) {
+            $start = $task->earliest_start_date->copy()->startOfDay();
+        }
+
         if ($task->recurrence_at && $task->recurrence_at->gt($start)) {
             $start = $task->recurrence_at->copy();
         }

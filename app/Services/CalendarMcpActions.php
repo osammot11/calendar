@@ -16,7 +16,7 @@ class CalendarMcpActions
 {
     private const EDITABLE_TASK_FIELDS = [
         'title', 'project_id', 'description', 'duration_minutes', 'priority', 'deadline',
-        'is_max_priority', 'is_pinned', 'pinned_start_at', 'earliest_start_time', 'latest_end_time',
+        'is_max_priority', 'is_pinned', 'pinned_start_at', 'earliest_start_date', 'earliest_start_time', 'latest_end_time',
     ];
 
     public function __construct(
@@ -115,6 +115,7 @@ class CalendarMcpActions
             'is_max_priority' => false,
             'is_pinned' => false,
             'pinned_start_at' => null,
+            'earliest_start_date' => null,
             'earliest_start_time' => null,
             'latest_end_time' => null,
             'status' => 'open',
@@ -190,6 +191,7 @@ class CalendarMcpActions
             'is_max_priority' => $task->is_max_priority,
             'is_pinned' => $task->is_pinned,
             'pinned_start_at' => $task->pinned_start_at?->toIso8601String(),
+            'earliest_start_date' => $task->earliest_start_date?->toDateString(),
             'earliest_start_time' => $task->earliest_start_time,
             'latest_end_time' => $task->latest_end_time,
             'status' => $task->status,

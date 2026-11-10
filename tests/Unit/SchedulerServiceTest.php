@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\BusyBlock;
+use App\Models\DateWorkOverride;
 use App\Models\Project;
 use App\Models\ScheduledBlock;
 use App\Models\Task;
@@ -112,6 +113,25 @@ class SchedulerServiceTest extends TestCase
         $first = ScheduledBlock::query()->orderBy('start_at')->first();
 
         $this->assertSame($deadlineTask->id, $first->task_id);
+    }
+
+    public function test_earliest_start_date_respects_a_daily_work_override(): void
+    {
+        $this->workday(1, '09:00', '12:00');
+        $this->workday(4, '09:00', '12:00');
+        DateWorkOverride::create([
+            'date' => '2026-06-25',
+            'start_time' => '11:00',
+            'end_time' => '13:00',
+        ]);
+        $project = $this->project('Follow-up', 3);
+        $task = $this->task($project, 'Chiamare il cliente', 5, false, 60, [
+            'earliest_start_date' => '2026-06-25',
+        ]);
+
+        app(SchedulerService::class)->recalculate();
+
+        $this->assertSame('2026-06-25 11:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
     }
 
     public function test_task_is_not_split_across_days(): void

@@ -150,6 +150,58 @@ class PlannerApiTest extends TestCase
         ]))->assertUnprocessable()->assertJsonValidationErrors('earliest_start_time');
     }
 
+    public function test_task_earliest_start_date_controls_creation_updates_and_recalculation(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 08:00:00'));
+        $this->actingAs(User::factory()->create());
+        $project = Project::create(['name' => 'Follow-up', 'color' => '#006a6a', 'priority' => 3]);
+        foreach ([1, 4, 5] as $weekday) {
+            WorkSchedule::create(['weekday' => $weekday, 'start_time' => '09:00', 'end_time' => '18:00']);
+        }
+        $payload = [
+            'project_id' => $project->id,
+            'title' => 'Ricontattare il cliente',
+            'duration_minutes' => 60,
+            'priority' => 3,
+            'is_max_priority' => false,
+            'is_pinned' => false,
+            'status' => 'open',
+            'earliest_start_date' => '2026-06-25',
+            'earliest_start_time' => '14:00',
+        ];
+
+        $this->postJson('/planner-api/tasks', $payload)->assertOk()
+            ->assertJsonPath('tasks.0.earliest_start_date', '2026-06-25');
+        $task = Task::query()->where('title', $payload['title'])->firstOrFail();
+        $this->assertSame('2026-06-25', $task->earliest_start_date->toDateString());
+        $this->assertSame('2026-06-25 14:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
+
+        $this->putJson("/planner-api/tasks/{$task->id}", array_replace($payload, [
+            'earliest_start_date' => '2026-06-26',
+            'earliest_start_time' => null,
+        ]))->assertOk();
+        $this->assertSame('2026-06-26 09:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
+
+        $this->postJson('/planner-api/recalculate')->assertOk();
+        $this->assertSame('2026-06-26 09:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
+
+        $this->putJson("/planner-api/tasks/{$task->id}", array_replace($payload, [
+            'earliest_start_date' => null,
+            'earliest_start_time' => null,
+        ]))->assertOk();
+        $this->assertNull($task->refresh()->earliest_start_date);
+        $this->assertSame('2026-06-22 09:00:00', $task->scheduledBlocks()->firstOrFail()->start_at->format('Y-m-d H:i:s'));
+
+        $this->postJson('/planner-api/tasks', array_replace($payload, [
+            'earliest_start_date' => 'domani',
+        ]))->assertUnprocessable()->assertJsonValidationErrors('earliest_start_date');
+        $this->postJson('/planner-api/tasks', array_replace($payload, [
+            'is_pinned' => true,
+            'pinned_start_at' => '2026-06-25 14:00:00',
+            'earliest_start_time' => null,
+        ]))->assertUnprocessable()->assertJsonValidationErrors('earliest_start_date');
+    }
+
     public function test_past_events_can_be_completed_or_rescheduled(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 10:00:00'));

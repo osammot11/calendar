@@ -124,6 +124,10 @@ function setDuration(hours, minutes) {
                 <ChevronDown :size="18" aria-hidden="true" />
             </summary>
             <div class="task-advanced-fields">
+                <label class="field advanced-start-date">
+                    <span>Pianificabile dal</span>
+                    <input v-model="taskForm.earliest_start_date" type="date" />
+                </label>
                 <label class="field">
                     <span>Non puo iniziare prima delle</span>
                     <input v-model="taskForm.earliest_start_time" type="time" step="300" />

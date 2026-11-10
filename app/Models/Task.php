@@ -16,6 +16,7 @@ class Task extends Model
         'title',
         'description',
         'duration_minutes',
+        'earliest_start_date',
         'earliest_start_time',
         'latest_end_time',
         'priority',
@@ -34,6 +35,7 @@ class Task extends Model
     {
         return [
             'deadline' => 'date',
+            'earliest_start_date' => 'date:Y-m-d',
             'duration_minutes' => 'integer',
             'priority' => 'integer',
             'is_max_priority' => 'boolean',

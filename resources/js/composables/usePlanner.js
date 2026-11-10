@@ -279,6 +279,7 @@ export function usePlanner() {
                   is_max_priority: Boolean(task.is_max_priority),
                   is_pinned: Boolean(task.is_pinned),
                   pinned_start_at: toDateTimeInput(task.pinned_start_at),
+                  earliest_start_date: task.earliest_start_date?.slice(0, 10) || "",
                   earliest_start_time: task.earliest_start_time?.slice(0, 5) || "",
                   latest_end_time: task.latest_end_time?.slice(0, 5) || "",
               }
@@ -424,6 +425,9 @@ export function usePlanner() {
             pinned_start_at: taskForm.value.is_pinned
                 ? taskForm.value.pinned_start_at
                 : null,
+            earliest_start_date: taskForm.value.is_pinned
+                ? null
+                : taskForm.value.earliest_start_date || null,
         };
         const url = payload.id
             ? `/planner-api/tasks/${payload.id}`
