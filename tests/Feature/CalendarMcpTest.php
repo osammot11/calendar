@@ -66,6 +66,18 @@ class CalendarMcpTest extends TestCase
         ])->assertCreated()->assertJsonPath('token_endpoint_auth_method', 'none');
 
         $this->assertDatabaseHas('oauth_clients', ['id' => $claude->json('client_id')]);
+
+        $this->postJson('/oauth/register', [
+            'client_name' => 'Impostore',
+            'redirect_uris' => ['https://jarvis.tommasogiovannoni.com.evil.example/oauth/callback'],
+        ])->assertBadRequest();
+
+        $jarvis = $this->postJson('/oauth/register', [
+            'client_name' => 'Jarvis',
+            'redirect_uris' => ['https://jarvis.tommasogiovannoni.com/oauth/callback'],
+        ])->assertCreated()->assertJsonPath('token_endpoint_auth_method', 'none');
+
+        $this->assertDatabaseHas('oauth_clients', ['id' => $jarvis->json('client_id')]);
     }
 
     public function test_mcp_requires_a_passport_token_and_lists_tools_when_authenticated(): void
