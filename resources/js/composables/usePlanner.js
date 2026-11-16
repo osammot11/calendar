@@ -293,6 +293,9 @@ export function usePlanner() {
                   ...series,
                   starts_at: toDateTimeInput(series.starts_at),
                   latest_start_time: series.latest_start_time?.slice(0, 5) || "",
+                  end_mode: series.end_mode || "count",
+                  occurrence_count: series.occurrence_count ?? "",
+                  ends_on: series.ends_on?.slice(0, 10) || "",
               }
             : {
                   ...blankRecurring(data.value.projects),
@@ -448,6 +451,12 @@ export function usePlanner() {
             interval_count: Number(recurringForm.value.interval_count),
             latest_start_time: recurringForm.value.start_mode === "window"
                 ? recurringForm.value.latest_start_time
+                : null,
+            occurrence_count: recurringForm.value.end_mode === "count"
+                ? Number(recurringForm.value.occurrence_count)
+                : null,
+            ends_on: recurringForm.value.end_mode === "date"
+                ? recurringForm.value.ends_on
                 : null,
         };
         const url = payload.id

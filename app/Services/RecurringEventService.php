@@ -28,6 +28,9 @@ class RecurringEventService
             }
 
             $horizon = $this->horizon($series);
+            if ($series->until_at && $series->until_at->lt($horizon)) {
+                $horizon = $series->until_at;
+            }
             $this->skipDistantPast($series);
             $generated = 0;
             $created = false;
@@ -65,6 +68,40 @@ class RecurringEventService
 
             return $created;
         });
+    }
+
+    /**
+     * Calcola until_at (istante dell'ultima occorrenza consentita) a partire
+     * dalla fine scelta dall'utente: numero di ricorrenze o data di fine.
+     */
+    public function withEnd(array $attributes): array
+    {
+        if ($attributes['end_mode'] === 'date') {
+            return [
+                ...$attributes,
+                'occurrence_count' => null,
+                'until_at' => Carbon::parse($attributes['ends_on'])->endOfDay(),
+            ];
+        }
+
+        $series = new RecurringEvent($attributes);
+        $remaining = (int) $attributes['occurrence_count'];
+        $index = 0;
+        $at = $this->occurrenceAt($series, $index);
+
+        while (true) {
+            if ($this->allowedTimeOfDay($series, $at) && --$remaining === 0) {
+                break;
+            }
+
+            $at = $this->occurrenceAt($series, ++$index);
+        }
+
+        return [
+            ...$attributes,
+            'ends_on' => null,
+            'until_at' => $at,
+        ];
     }
 
     public function updateSeries(RecurringEvent $series, array $attributes): void
@@ -150,13 +187,21 @@ class RecurringEventService
             return $at->gte(now());
         }
 
-        if ($series->interval_unit === 'hours') {
-            $time = $at->format('H:i');
-            if ($time < $series->starts_at->format('H:i') || $time > substr($series->latest_start_time, 0, 5)) {
-                return false;
-            }
+        if (! $this->allowedTimeOfDay($series, $at)) {
+            return false;
         }
 
         return $at->copy()->setTimeFromTimeString($series->latest_start_time)->gte(now());
+    }
+
+    private function allowedTimeOfDay(RecurringEvent $series, Carbon $at): bool
+    {
+        if ($series->start_mode !== 'window' || $series->interval_unit !== 'hours') {
+            return true;
+        }
+
+        $time = $at->format('H:i');
+
+        return $time >= $series->starts_at->format('H:i') && $time <= substr($series->latest_start_time, 0, 5);
     }
 }

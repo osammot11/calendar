@@ -21,6 +21,10 @@ class RecurringEvent extends Model
         'next_index',
         'next_at',
         'active',
+        'end_mode',
+        'occurrence_count',
+        'ends_on',
+        'until_at',
     ];
 
     protected function casts(): array
@@ -32,6 +36,9 @@ class RecurringEvent extends Model
             'interval_count' => 'integer',
             'next_index' => 'integer',
             'active' => 'boolean',
+            'occurrence_count' => 'integer',
+            'ends_on' => 'date:Y-m-d',
+            'until_at' => 'datetime',
         ];
     }
 

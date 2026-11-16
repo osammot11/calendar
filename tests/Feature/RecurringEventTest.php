@@ -186,6 +186,100 @@ class RecurringEventTest extends TestCase
         $this->assertTrue($series->tasks()->where('recurrence_at', '2026-11-03 09:00:00')->exists());
     }
 
+    public function test_series_stops_after_the_requested_number_of_occurrences(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-02 08:00'));
+        $this->actingAs(User::factory()->create());
+        $project = $this->project();
+
+        $this->postJson('/planner-api/recurring-events', array_replace($this->payload($project), [
+            'occurrence_count' => 5,
+        ]))->assertOk();
+
+        $series = RecurringEvent::firstOrFail();
+        $this->assertSame(5, $series->tasks()->count());
+        $this->assertSame('2026-11-06 09:00:00', $series->until_at->format('Y-m-d H:i:s'));
+
+        Carbon::setTestNow(Carbon::parse('2026-11-20 08:00'));
+        $this->getJson('/planner-api/bootstrap')->assertOk();
+        $this->assertSame(5, $series->tasks()->count());
+    }
+
+    public function test_hourly_window_count_ignores_hours_outside_the_window(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-02 08:00'));
+        $this->actingAs(User::factory()->create());
+        $project = $this->project();
+
+        $this->postJson('/planner-api/recurring-events', array_replace($this->payload($project), [
+            'start_mode' => 'window',
+            'latest_start_time' => '11:00',
+            'interval_unit' => 'hours',
+            'occurrence_count' => 4,
+        ]))->assertOk();
+
+        $dates = RecurringEvent::firstOrFail()->tasks()->orderBy('recurrence_at')->pluck('recurrence_at')
+            ->map(fn ($date) => Carbon::parse($date)->format('Y-m-d H:i'))->all();
+        $this->assertSame(['2026-11-02 09:00', '2026-11-02 10:00', '2026-11-02 11:00', '2026-11-03 09:00'], $dates);
+    }
+
+    public function test_series_stops_at_the_end_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-02 08:00'));
+        $this->actingAs(User::factory()->create());
+        $project = $this->project();
+
+        $this->postJson('/planner-api/recurring-events', array_replace($this->payload($project), [
+            'end_mode' => 'date',
+            'occurrence_count' => null,
+            'ends_on' => '2026-11-04',
+        ]))->assertOk();
+
+        $series = RecurringEvent::firstOrFail();
+        $this->assertSame(3, $series->tasks()->count());
+        $this->assertNull($series->occurrence_count);
+    }
+
+    public function test_series_requires_an_end(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $project = $this->project();
+        $payload = $this->payload($project);
+        unset($payload['end_mode'], $payload['occurrence_count']);
+
+        $this->postJson('/planner-api/recurring-events', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('end_mode');
+
+        $this->postJson('/planner-api/recurring-events', array_replace($this->payload($project), [
+            'end_mode' => 'date',
+            'occurrence_count' => null,
+            'ends_on' => '2026-10-01',
+            'starts_at' => '2026-11-02 09:00',
+        ]))->assertUnprocessable()->assertJsonValidationErrors('ends_on');
+    }
+
+    public function test_editing_a_series_cannot_set_an_end_in_the_past(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-02 08:00'));
+        $this->actingAs(User::factory()->create());
+        $project = $this->project();
+        $this->postJson('/planner-api/recurring-events', $this->payload($project))->assertOk();
+        $series = RecurringEvent::firstOrFail();
+
+        Carbon::setTestNow(Carbon::parse('2026-11-16 08:00'));
+        $this->putJson("/planner-api/recurring-events/{$series->id}", array_replace($this->payload($project), [
+            'occurrence_count' => 10,
+        ]))->assertUnprocessable()->assertJsonValidationErrors('occurrence_count');
+
+        $this->assertTrue($series->tasks()->where('recurrence_at', '>=', now())->exists());
+
+        $this->putJson("/planner-api/recurring-events/{$series->id}", array_replace($this->payload($project), [
+            'occurrence_count' => 20,
+        ]))->assertOk();
+        $this->assertSame('2026-11-21 09:00:00', $series->refresh()->until_at->format('Y-m-d H:i:s'));
+    }
+
     private function project(): Project
     {
         return Project::create(['name' => 'Lavoro', 'color' => '#006a6a', 'priority' => 3]);
@@ -216,6 +310,9 @@ class RecurringEventTest extends TestCase
             'latest_start_time' => null,
             'interval_count' => 1,
             'interval_unit' => 'days',
+            'end_mode' => 'count',
+            'occurrence_count' => 30,
+            'ends_on' => null,
         ];
     }
 }

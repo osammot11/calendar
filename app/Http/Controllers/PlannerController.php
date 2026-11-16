@@ -366,7 +366,19 @@ class PlannerController extends Controller
             'latest_start_time' => ['nullable', 'required_if:start_mode,window', 'prohibited_if:start_mode,fixed', 'date_format:H:i'],
             'interval_count' => ['required', 'integer', 'min:1', 'max:365'],
             'interval_unit' => ['required', Rule::in(['hours', 'days', 'weeks', 'months'])],
+            'end_mode' => ['required', Rule::in(['count', 'date'])],
+            'occurrence_count' => ['nullable', 'required_if:end_mode,count', 'integer', 'min:1', 'max:1000'],
+            'ends_on' => ['nullable', 'required_if:end_mode,date', 'date_format:Y-m-d'],
         ]);
+
+        if (
+            $attributes['end_mode'] === 'date'
+            && $attributes['ends_on'] < Carbon::parse($attributes['starts_at'])->toDateString()
+        ) {
+            throw ValidationException::withMessages([
+                'ends_on' => 'La data di fine non puo essere precedente alla prima occorrenza.',
+            ]);
+        }
 
         if (
             $attributes['start_mode'] === 'window'
@@ -374,6 +386,14 @@ class PlannerController extends Controller
         ) {
             throw ValidationException::withMessages([
                 'latest_start_time' => 'La fine della fascia deve essere successiva all\'inizio.',
+            ]);
+        }
+
+        $attributes = $this->recurringEvents->withEnd($attributes);
+
+        if ($attributes['until_at']->lt(now())) {
+            throw ValidationException::withMessages([
+                $attributes['end_mode'] === 'date' ? 'ends_on' : 'occurrence_count' => 'Con questa fine la serie terminerebbe nel passato.',
             ]);
         }
 

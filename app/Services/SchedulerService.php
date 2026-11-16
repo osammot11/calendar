@@ -10,60 +10,67 @@ use App\Models\WorkSchedule;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class SchedulerService
 {
     private const SLOT_MINUTES = 5;
-    private const MIN_WEEKS = 12;
     private const MAX_WEEKS = 52;
 
     public function recalculate(): void
     {
-        $unresolvedPastTaskIds = ScheduledBlock::query()
-            ->where('end_at', '<', now())
-            ->whereHas('task', fn ($query) => $query->where('status', 'open'))
-            ->pluck('task_id')
-            ->unique();
+        DB::transaction(function (): void {
+            $unresolvedPastTaskIds = ScheduledBlock::query()
+                ->where('end_at', '<', now())
+                ->whereHas('task', fn ($query) => $query->where('status', 'open'))
+                ->pluck('task_id')
+                ->unique();
 
-        $this->deleteRecalculableBlocks();
-
-        $tasks = $this->orderedTasks($unresolvedPastTaskIds);
-        if ($tasks->isEmpty()) {
-            return;
-        }
-
-        $scheduledTaskIds = collect();
-
-        $weeks = self::MIN_WEEKS;
-
-        while ($scheduledTaskIds->count() < $tasks->count() && $weeks <= self::MAX_WEEKS) {
             $this->deleteRecalculableBlocks();
-            $pinnedBlocks = $this->schedulePinnedTasks($tasks);
-            $scheduledTaskIds = $pinnedBlocks->pluck('task_id');
 
-            $slots = $this->availableSlots($weeks, $pinnedBlocks);
+            $tasks = $this->orderedTasks($unresolvedPastTaskIds);
+            if ($tasks->isEmpty()) {
+                return;
+            }
+
+            $pinnedBlocks = $this->schedulePinnedTasks($tasks);
+            $scheduledTaskIds = array_flip($pinnedBlocks->pluck('task_id')->all());
+
+            // Una sola passata sull'intero orizzonte: l'assegnazione greedy
+            // "primo slot utile" da lo stesso risultato che si otteneva
+            // allargando l'orizzonte di 4 settimane alla volta e rifacendo tutto.
+            $slots = $this->availableSlots(self::MAX_WEEKS, $pinnedBlocks);
+            $rows = [];
+            $timestamp = now();
 
             foreach ($tasks as $task) {
-                if ($scheduledTaskIds->contains($task->id)) {
+                if (isset($scheduledTaskIds[$task->id])) {
                     continue;
                 }
 
                 $minutes = $this->roundToSlot($task->duration_minutes);
+                $latestStart = $this->latestRecurringStart($task);
 
                 foreach ($slots as $index => $slot) {
+                    if ($latestStart && $slot['start']->gt($latestStart)) {
+                        break;
+                    }
+
                     $start = $this->eligibleStart($task, $slot);
                     $end = $start->copy()->addMinutes($minutes);
 
-                    if ($this->pastLatestRecurringStart($task, $start) || $end->gt($this->eligibleEnd($task, $slot))) {
+                    if (($latestStart && $start->gt($latestStart)) || $end->gt($this->eligibleEnd($task, $slot))) {
                         continue;
                     }
 
-                    ScheduledBlock::create([
+                    $rows[] = [
                         'task_id' => $task->id,
                         'start_at' => $start,
                         'end_at' => $end,
                         'minutes' => $minutes,
-                    ]);
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ];
 
                     $remaining = [];
                     if ($slot['start']->lt($start)) {
@@ -74,17 +81,14 @@ class SchedulerService
                     }
 
                     array_splice($slots, $index, 1, $remaining);
-                    $scheduledTaskIds->push($task->id);
                     break;
                 }
             }
 
-            if ($scheduledTaskIds->count() === $tasks->count() || $weeks >= self::MAX_WEEKS) {
-                break;
+            foreach (array_chunk($rows, 200) as $chunk) {
+                ScheduledBlock::insert($chunk);
             }
-
-            $weeks += 4;
-        }
+        });
     }
 
     public function scheduleTask(Task $task): void
@@ -120,28 +124,28 @@ class SchedulerService
         }
 
         $minutes = $this->roundToSlot($task->duration_minutes);
-        $weeks = self::MIN_WEEKS;
+        $latestStart = $this->latestRecurringStart($task);
 
-        while ($weeks <= self::MAX_WEEKS) {
-            foreach ($this->availableSlots($weeks, $this->existingScheduledBlocks($task)) as $slot) {
-                $start = $this->eligibleStart($task, $slot);
-                $end = $start->copy()->addMinutes($minutes);
-
-                if ($this->pastLatestRecurringStart($task, $start) || $end->gt($this->eligibleEnd($task, $slot))) {
-                    continue;
-                }
-
-                ScheduledBlock::create([
-                    'task_id' => $task->id,
-                    'start_at' => $start,
-                    'end_at' => $end,
-                    'minutes' => $minutes,
-                ]);
-
+        foreach ($this->availableSlots(self::MAX_WEEKS, $this->existingScheduledBlocks($task)) as $slot) {
+            if ($latestStart && $slot['start']->gt($latestStart)) {
                 return;
             }
 
-            $weeks += 4;
+            $start = $this->eligibleStart($task, $slot);
+            $end = $start->copy()->addMinutes($minutes);
+
+            if (($latestStart && $start->gt($latestStart)) || $end->gt($this->eligibleEnd($task, $slot))) {
+                continue;
+            }
+
+            ScheduledBlock::create([
+                'task_id' => $task->id,
+                'start_at' => $start,
+                'end_at' => $end,
+                'minutes' => $minutes,
+            ]);
+
+            return;
         }
     }
 
@@ -204,15 +208,13 @@ class SchedulerService
         return $task->recurrence_at && $task->recurringEvent?->start_mode === 'fixed';
     }
 
-    private function pastLatestRecurringStart(Task $task, Carbon $start): bool
+    private function latestRecurringStart(Task $task): ?Carbon
     {
         if (! $task->recurrence_at || $task->recurringEvent?->start_mode !== 'window') {
-            return false;
+            return null;
         }
 
-        $latest = $task->recurrence_at->copy()->setTimeFromTimeString($task->recurringEvent->latest_start_time);
-
-        return $start->gt($latest);
+        return $task->recurrence_at->copy()->setTimeFromTimeString($task->recurringEvent->latest_start_time);
     }
 
     private function orderedTasks(Collection $excludedTaskIds): Collection
@@ -266,7 +268,10 @@ class SchedulerService
             ])
             ->concat($pinnedBlocks)
             ->sortBy('start_at')
-            ->values();
+            ->values()
+            ->all();
+        $first = 0;
+        $count = count($occupiedBlocks);
 
         $slots = [];
 
@@ -288,7 +293,13 @@ class SchedulerService
                     $slotStart = $this->roundUp(now());
                 }
 
-                foreach ($this->subtractBusyBlocks($slotStart, $slotEnd, $occupiedBlocks) as $slot) {
+                // I blocchi gia terminati prima di questo slot non servono piu:
+                // gli slot sono generati in ordine cronologico.
+                while ($first < $count && $occupiedBlocks[$first]['end_at']->lte($slotStart)) {
+                    $first++;
+                }
+
+                foreach ($this->subtractBusyBlocks($slotStart, $slotEnd, $occupiedBlocks, $first) as $slot) {
                     if ($slot['start']->lt($slot['end'])) {
                         $slots[] = $slot;
                     }
@@ -351,30 +362,34 @@ class SchedulerService
         return $end;
     }
 
-    private function subtractBusyBlocks(Carbon $start, Carbon $end, Collection $busyBlocks): array
+    /**
+     * @param  array<int, array{start_at: Carbon, end_at: Carbon}>  $busyBlocks  ordinati per start_at
+     */
+    private function subtractBusyBlocks(Carbon $start, Carbon $end, array $busyBlocks, int $offset = 0): array
     {
-        $slots = [['start' => $start->copy(), 'end' => $end->copy()]];
+        $slots = [];
+        $cursor = $start->copy();
 
-        foreach ($busyBlocks as $busy) {
-            $busyStart = $busy['start_at'];
-            $busyEnd = $busy['end_at'];
-
-            $slots = collect($slots)->flatMap(function (array $slot) use ($busyStart, $busyEnd) {
-                if ($busyEnd->lte($slot['start']) || $busyStart->gte($slot['end'])) {
-                    return [$slot];
-                }
-
-                $parts = [];
-                if ($busyStart->gt($slot['start'])) {
-                    $parts[] = ['start' => $slot['start'], 'end' => min($busyStart, $slot['end'])];
-                }
-                if ($busyEnd->lt($slot['end'])) {
-                    $parts[] = ['start' => max($busyEnd, $slot['start']), 'end' => $slot['end']];
-                }
-
-                return $parts;
-            })->values()->all();
+        for ($i = $offset, $count = count($busyBlocks); $i < $count; $i++) {
+            $busy = $busyBlocks[$i];
+            if ($busy['start_at']->gte($end)) {
+                break;
+            }
+            if ($busy['end_at']->lte($cursor)) {
+                continue;
+            }
+            if ($busy['start_at']->gt($cursor)) {
+                $slots[] = ['start' => $cursor, 'end' => $busy['start_at']->copy()];
+            }
+            if ($busy['end_at']->gt($cursor)) {
+                $cursor = $busy['end_at']->copy();
+            }
+            if ($cursor->gte($end)) {
+                return $slots;
+            }
         }
+
+        $slots[] = ['start' => $cursor, 'end' => $end->copy()];
 
         return $slots;
     }

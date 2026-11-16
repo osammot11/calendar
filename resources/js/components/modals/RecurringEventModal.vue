@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { Clock3, Repeat2, X } from "@lucide/vue";
+import { CalendarCheck2, Clock3, Repeat2, X } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
 const {
@@ -130,6 +130,41 @@ function setDuration(hours, minutes) {
                         <option value="weeks">Settimane</option>
                         <option value="months">Mesi</option>
                     </select>
+                </label>
+            </div>
+        </div>
+
+        <div class="recurring-section">
+            <span class="recurring-section-label"><CalendarCheck2 :size="16" /> Fine</span>
+            <div class="filter-pill-group recurring-mode" aria-label="Fine della serie">
+                <button
+                    type="button"
+                    class="filter-pill"
+                    :class="{ active: recurringForm.end_mode === 'count' }"
+                    :aria-pressed="recurringForm.end_mode === 'count'"
+                    @click="recurringForm.end_mode = 'count'"
+                >Numero di ricorrenze</button>
+                <button
+                    type="button"
+                    class="filter-pill"
+                    :class="{ active: recurringForm.end_mode === 'date' }"
+                    :aria-pressed="recurringForm.end_mode === 'date'"
+                    @click="recurringForm.end_mode = 'date'"
+                >Data di fine</button>
+            </div>
+            <div class="recurring-time-fields">
+                <label v-if="recurringForm.end_mode === 'count'" class="field">
+                    <span>Quante ricorrenze</span>
+                    <input v-model.number="recurringForm.occurrence_count" type="number" min="1" max="1000" required />
+                </label>
+                <label v-else class="field">
+                    <span>Ultimo giorno</span>
+                    <input
+                        v-model="recurringForm.ends_on"
+                        type="date"
+                        :min="recurringForm.starts_at?.slice(0, 10)"
+                        required
+                    />
                 </label>
             </div>
         </div>

@@ -49,6 +49,9 @@ export function blankRecurring(projects = []) {
         latest_start_time: "",
         interval_count: 1,
         interval_unit: "days",
+        end_mode: "count",
+        occurrence_count: 10,
+        ends_on: "",
     };
 }
 

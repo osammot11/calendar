@@ -56,7 +56,15 @@ const recurrenceLabel = computed(() => {
         months: ["mese", "mesi"],
     };
     const unit = units[series.interval_unit] || [series.interval_unit, series.interval_unit];
-    return `Ogni ${series.interval_count} ${unit[series.interval_count === 1 ? 0 : 1]}`;
+    const base = `Ogni ${series.interval_count} ${unit[series.interval_count === 1 ? 0 : 1]}`;
+    if (series.end_mode === "count" && series.occurrence_count) {
+        return `${base}, ${series.occurrence_count} ${series.occurrence_count === 1 ? "volta" : "volte"}`;
+    }
+    if (series.end_mode === "date" && series.ends_on) {
+        const [year, month, day] = series.ends_on.slice(0, 10).split("-");
+        return `${base}, fino al ${day}/${month}/${year}`;
+    }
+    return base;
 });
 const recurrenceStartTime = computed(() => {
     const value = selectedCalendarEvent.value?.task?.recurrence_at;
