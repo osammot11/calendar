@@ -30,11 +30,10 @@ function navigate(panel) {
                 class="nav-item"
                 :class="{ active: item.panels.includes(activePanel) }"
                 :aria-current="item.panels.includes(activePanel) ? 'page' : undefined"
-                :title="item.label"
                 @click="navigate(item.key)"
             >
                 <span class="nav-icon"><component :is="item.icon" :size="21" :stroke-width="1.8" /></span>
-                <span>{{ item.label }}</span>
+                <span class="nav-label">{{ item.label }}</span>
             </button>
         </nav>
         <div class="nav-footer">

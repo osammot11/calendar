@@ -29,7 +29,10 @@
     .nav-rail { position: fixed; inset: auto 0 0; height: auto; border-right: 0; border-top: 1px solid var(--md-outline-variant); padding: 8px 10px max(8px, env(safe-area-inset-bottom)); background: #f3eee4f2; backdrop-filter: blur(12px); }
     .nav-rail .brand-mark, .nav-rail .nav-footer { display: none; }
     .nav-items { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; gap: 0; }
-    .nav-item { min-height: 52px; gap: 3px; font-size: 11px; }
+    .nav-items { justify-items: stretch; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; width: 100%; height: auto; min-height: 52px; gap: 3px; border-radius: 0; font-size: 11px; }
+    .nav-icon { border-radius: 15px; }
+    .nav-label { position: static; padding: 0; background: none; color: inherit; opacity: 1; transform: none; }
     .nav-icon { height: 30px; width: 46px; }
     .fab { position: fixed; display: inline-flex; right: 22px; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 12; width: 56px; height: 56px; border-radius: 17px; background: var(--md-primary); color: var(--md-on-primary); box-shadow: var(--shadow-2); }
     .calendar-toolbar { padding: 14px 12px 10px; gap: 12px; }
