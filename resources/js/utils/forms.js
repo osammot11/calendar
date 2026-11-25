@@ -45,7 +45,7 @@ export function blankRecurring(projects = []) {
         description: "",
         duration_minutes: 60,
         start_mode: "fixed",
-        starts_at: toDateTimeLocal(new Date(Date.now() + 60 * 60 * 1000)),
+        starts_at: toDateTimeLocal(nextFullHour()),
         latest_start_time: "",
         interval_count: 1,
         interval_unit: "days",
@@ -53,6 +53,14 @@ export function blankRecurring(projects = []) {
         occurrence_count: 10,
         ends_on: "",
     };
+}
+
+// Il campo "Prima occorrenza" accetta solo multipli di 5 minuti (step=300):
+// proporre l'ora piena successiva evita che il browser blocchi il salvataggio.
+function nextFullHour() {
+    const date = new Date();
+    date.setHours(date.getHours() + 1, 0, 0, 0);
+    return date;
 }
 
 export function today() {

@@ -64,6 +64,8 @@ export function usePlanner() {
     const modal = ref(null);
     const taskForm = ref(blankTask());
     const recurringForm = ref(blankRecurring());
+    // Nel modal unico "Nuova task": false = task singola, true = serie ricorrente.
+    const taskRepeats = ref(false);
     const projectForm = ref(blankProject());
     const busyForm = ref({
         title: "",
@@ -284,6 +286,8 @@ export function usePlanner() {
                   latest_end_time: task.latest_end_time?.slice(0, 5) || "",
               }
             : blankTask(data.value.projects);
+        taskRepeats.value = false;
+        recurringForm.value = blankRecurring(data.value.projects);
         modal.value = "task";
     }
 
@@ -303,7 +307,8 @@ export function usePlanner() {
                       ? selectedProject.value.id
                       : data.value.projects[0]?.id ?? "",
               };
-        modal.value = "recurring";
+        taskRepeats.value = true;
+        modal.value = "task";
     }
 
     function openTaskForProject(project) {
@@ -311,7 +316,38 @@ export function usePlanner() {
             ...blankTask(data.value.projects),
             project_id: project.id,
         };
+        recurringForm.value = {
+            ...blankRecurring(data.value.projects),
+            project_id: project.id,
+        };
+        taskRepeats.value = false;
         modal.value = "task";
+    }
+
+    // Passa da task singola a serie (e viceversa) nel modal di creazione,
+    // portando con sé i campi in comune così l'utente non li riscrive.
+    function setTaskRepeats(repeats) {
+        if (repeats === taskRepeats.value) return;
+        const [from, to] = repeats
+            ? [taskForm, recurringForm]
+            : [recurringForm, taskForm];
+        to.value = {
+            ...to.value,
+            title: from.value.title,
+            description: from.value.description,
+            project_id: from.value.project_id,
+            duration_minutes: from.value.duration_minutes,
+        };
+        const pinnedStart = taskForm.value.pinned_start_at;
+        if (repeats && taskForm.value.is_pinned && pinnedStart && Number(pinnedStart.slice(14, 16)) % 5 === 0) {
+            recurringForm.value.start_mode = "fixed";
+            recurringForm.value.starts_at = pinnedStart;
+        }
+        taskRepeats.value = repeats;
+    }
+
+    function saveTaskOrSeries() {
+        return taskRepeats.value ? saveRecurring() : saveTask();
     }
 
     function openContextualTask() {
@@ -703,6 +739,8 @@ export function usePlanner() {
         projectFor,
         projectForm,
         recurringForm,
+        setTaskRepeats,
+        taskRepeats,
         projectTaskFilter,
         recalculate,
         reschedulePastEvent,
@@ -713,6 +751,7 @@ export function usePlanner() {
         saveRecurring,
         saveSchedules,
         saveTask,
+        saveTaskOrSeries,
         saving,
         scheduleDays,
         selectedCalendarEvent,

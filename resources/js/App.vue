@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { Plus, Repeat2 } from "@lucide/vue";
+import { Plus } from "@lucide/vue";
 import { providePlanner } from "./composables/plannerContext";
 import { usePlanner } from "./composables/usePlanner";
 import AppHeader from "./components/layout/AppHeader.vue";
@@ -19,7 +19,6 @@ const {
     error,
     loading,
     openContextualTask,
-    openRecurring,
     selectedProject,
 } = planner;
 
@@ -61,14 +60,6 @@ const onDashboard = computed(
                 @click="openContextualTask"
             >
                 <Plus :size="26" />
-            </button>
-            <button
-                class="fab fab-secondary"
-                title="Nuovo ricorrente"
-                aria-label="Nuovo ricorrente"
-                @click="openRecurring()"
-            >
-                <Repeat2 :size="22" />
             </button>
         </main>
 

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { ChevronLeft, ChevronRight, Pin, Flag, Plus, RefreshCw, Repeat2 } from "@lucide/vue";
+import { ChevronLeft, ChevronRight, Pin, Flag, Plus, RefreshCw } from "@lucide/vue";
 import FullCalendar from "@fullcalendar/vue3";
 import itLocale from "@fullcalendar/core/locales/it";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -8,7 +8,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { usePlannerContext } from "../../composables/plannerContext";
 
-const { data, openBusyBlockFromSelection, openCalendarEvent, openDay, openContextualTask, openRecurring, recalculate, saving } = usePlannerContext();
+const { data, openBusyBlockFromSelection, openCalendarEvent, openDay, openContextualTask, recalculate, saving } = usePlannerContext();
 const calendar = ref(null);
 const titleMain = ref("");
 const titleSub = ref("");
@@ -106,9 +106,6 @@ const calendarOptions = computed(() => ({
                 </div>
                 <button class="icon-button recalculate-button" :disabled="saving" title="Ricalcola pianificazione" aria-label="Ricalcola pianificazione" @click="recalculate">
                     <RefreshCw :size="18" :class="{ spinning: saving }" />
-                </button>
-                <button class="icon-button header-create" title="Nuovo ricorrente" aria-label="Nuovo ricorrente" @click="openRecurring()">
-                    <Repeat2 :size="18" />
                 </button>
                 <button class="button filled header-create" @click="openContextualTask">
                     <Plus :size="17" /> Nuova task
