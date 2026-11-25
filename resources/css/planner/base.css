@@ -4,13 +4,13 @@ button, input, select, textarea { font: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled, input:disabled { cursor: not-allowed; opacity: .5; }
 button, a, input, select, textarea { touch-action: manipulation; }
-button:focus-visible, a:focus-visible { outline: 3px solid #479e87; outline-offset: 3px; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--md-primary); outline-offset: 2px; }
 h1, h2, p { margin: 0; }
-h1, h2 { line-height: 1.25; font-weight: 650; overflow-wrap: anywhere; }
+h1, h2 { line-height: 1.15; font-family: var(--font-display); font-weight: 500; overflow-wrap: anywhere; }
 svg { flex-shrink: 0; }
-::selection { background: #c7e7da; color: #173c2e; }
+::selection { background: #e1e9df; color: #1f4238; }
 .surface { background: var(--md-surface); }
-.eyebrow { color: var(--md-on-surface-variant); font-size: 11px; font-weight: 600; margin-bottom: 5px; }
+.eyebrow { color: var(--md-on-surface-variant); font-size: 12px; font-weight: 500; margin-bottom: 2px; }
 .boot-screen { display: flex; min-height: 100vh; flex-direction: column; justify-content: center; align-items: center; gap: 18px; color: var(--md-on-surface-variant); }
 .progress { width: min(240px, 70vw); height: 4px; overflow: hidden; border-radius: 4px; background: var(--md-surface-container-high); }
 .progress::after { display: block; width: 42%; height: 100%; animation: load 1100ms infinite ease-in-out; background: var(--md-primary); content: ""; }

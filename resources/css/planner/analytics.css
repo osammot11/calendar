@@ -1,8 +1,10 @@
 .analytics-page {
     display: grid;
     gap: 0;
-    border: 1px solid var(--md-outline-variant);
+    border-radius: var(--radius-lg);
     background: var(--md-surface);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
 }
 
 .analytics-toolbar {

@@ -1,7 +1,7 @@
 <script setup>
 import { usePlannerContext } from "../../composables/plannerContext";
 
-const { saveSchedules, scheduleDays } = usePlannerContext();
+const { csrfToken, saveSchedules, scheduleDays } = usePlannerContext();
 </script>
 
 <template>
@@ -33,5 +33,9 @@ const { saveSchedules, scheduleDays } = usePlannerContext();
                 />
             </label>
         </div>
+        <form class="settings-logout" method="post" action="/logout">
+            <input type="hidden" name="_token" :value="csrfToken" />
+            <button class="button outlined" type="submit">Esci</button>
+        </form>
     </section>
 </template>

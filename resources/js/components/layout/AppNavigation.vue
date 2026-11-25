@@ -1,8 +1,8 @@
 <script setup>
-import { CalendarDays, CalendarClock, ChartBar, FolderKanban, History, Settings2 } from "@lucide/vue";
+import { CalendarDays, CalendarClock, ChartBar, FolderKanban, History, LogOut, Settings2 } from "@lucide/vue";
 import { usePlannerContext } from "../../composables/plannerContext";
 
-const { activePanel, data } = usePlannerContext();
+const { activePanel, csrfToken, data } = usePlannerContext();
 const items = [
     { key: "overview", label: "Calendario", icon: CalendarDays, panels: ["overview", "day"] },
     { key: "deadlines", label: "Scadenze", icon: CalendarClock, panels: ["deadlines"] },
@@ -21,7 +21,7 @@ function navigate(panel) {
 <template>
     <aside class="nav-rail">
         <a class="brand-mark" href="/planner" aria-label="Planner, calendario" title="Planner">
-            <CalendarDays :size="25" :stroke-width="1.8" />
+            c.
         </a>
         <nav class="nav-items" aria-label="Navigazione principale">
             <button
@@ -37,8 +37,14 @@ function navigate(panel) {
                 <span>{{ item.label }}</span>
             </button>
         </nav>
-        <span class="user-avatar" :title="data.user?.name" :aria-label="data.user?.name">
-            {{ data.user?.name?.charAt(0).toUpperCase() || 'P' }}
-        </span>
+        <div class="nav-footer">
+            <form method="post" action="/logout">
+                <input type="hidden" name="_token" :value="csrfToken" />
+                <button class="icon-button" type="submit" title="Esci" aria-label="Esci"><LogOut :size="18" /></button>
+            </form>
+            <span class="user-avatar" :title="data.user?.name" :aria-label="data.user?.name">
+                {{ data.user?.name?.charAt(0).toUpperCase() || 'P' }}
+            </span>
+        </div>
     </aside>
 </template>

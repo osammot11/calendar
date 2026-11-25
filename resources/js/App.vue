@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { Plus, Repeat2 } from "@lucide/vue";
 import { providePlanner } from "./composables/plannerContext";
 import { usePlanner } from "./composables/usePlanner";
@@ -21,6 +22,15 @@ const {
     openRecurring,
     selectedProject,
 } = planner;
+
+const onDashboard = computed(
+    () =>
+        !(
+            activePanel.value === "pastEvents" ||
+            activePanel.value === "analytics" ||
+            (activePanel.value === "projectDetail" && selectedProject.value)
+        ),
+);
 </script>
 
 <template>
@@ -33,7 +43,7 @@ const {
         <AppNavigation />
 
         <main class="main-area">
-            <AppHeader />
+            <AppHeader v-if="!onDashboard" />
 
             <div v-if="error" class="snackbar">{{ error }}</div>
 

@@ -12,10 +12,7 @@ const title = computed(() => ({
 
 <template>
     <header class="top-app-bar">
-        <div class="app-heading">
-            <p class="eyebrow">Planner personale</p>
-            <h1>{{ title }}</h1>
-        </div>
+        <h1>{{ title }}</h1>
         <div class="top-actions">
             <button class="icon-button recalculate-button" :disabled="saving" title="Ricalcola pianificazione" aria-label="Ricalcola pianificazione" @click="recalculate">
                 <RefreshCw :size="19" :class="{ spinning: saving }" />
