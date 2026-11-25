@@ -33,20 +33,27 @@ class SchedulerService
                 return;
             }
 
-            $pinnedBlocks = $this->schedulePinnedTasks($tasks);
-            $scheduledTaskIds = array_flip($pinnedBlocks->pluck('task_id')->all());
+            // Ordine di precedenza: 1) task riposizionate a mano, 2) appuntamenti
+            // fissati e ricorrenze a ora precisa, 3) tutto il resto in ordine di priorita.
+            // Un appuntamento fissato che si sovrappone a una task riposizionata
+            // a mano perde il suo orario e viene ripianificato per primo.
+            $manualBlocks = $this->scheduleManualTasks($tasks);
+            [$pinnedBlocks, $displacedTasks] = $this->schedulePinnedTasks($tasks, $manualBlocks);
+            $fixedBlocks = $manualBlocks->concat($pinnedBlocks);
+            $scheduledTaskIds = array_flip($fixedBlocks->pluck('task_id')->all());
 
             // Una sola passata sull'intero orizzonte: l'assegnazione greedy
             // "primo slot utile" da lo stesso risultato che si otteneva
             // allargando l'orizzonte di 4 settimane alla volta e rifacendo tutto.
-            $slots = $this->availableSlots(self::MAX_WEEKS, $pinnedBlocks);
+            $slots = $this->availableSlots(self::MAX_WEEKS, $fixedBlocks);
             $rows = [];
             $timestamp = now();
 
-            foreach ($tasks as $task) {
+            foreach ($displacedTasks->concat($tasks) as $task) {
                 if (isset($scheduledTaskIds[$task->id])) {
                     continue;
                 }
+                $scheduledTaskIds[$task->id] = true;
 
                 $minutes = $this->roundToSlot($task->duration_minutes);
                 $latestStart = $this->latestRecurringStart($task);
@@ -113,6 +120,11 @@ class SchedulerService
             return;
         }
 
+        if ($task->manual_start_at) {
+            $this->scheduleManualTask($task);
+            return;
+        }
+
         if ($task->is_pinned && $task->pinned_start_at) {
             $this->schedulePinnedTask($task);
             return;
@@ -156,22 +168,70 @@ class SchedulerService
             ->delete();
     }
 
-    private function schedulePinnedTasks(Collection $tasks): Collection
+    private function scheduleManualTasks(Collection $tasks): Collection
     {
         return $tasks
-            ->filter(fn (Task $task) => ($task->is_pinned && $task->pinned_start_at) || $this->isFixedRecurring($task))
-            ->map(function (Task $task) {
+            ->filter(fn (Task $task) => $task->manual_start_at !== null)
+            ->map(fn (Task $task) => $this->blockArray($this->scheduleManualTask($task)))
+            ->values();
+    }
+
+    /**
+     * @return array{0: Collection, 1: Collection} blocchi fissati e task fissate spostate
+     */
+    private function schedulePinnedTasks(Collection $tasks, Collection $manualBlocks): array
+    {
+        $blocks = collect();
+        $displaced = collect();
+
+        $tasks
+            ->filter(fn (Task $task) => $task->manual_start_at === null
+                && (($task->is_pinned && $task->pinned_start_at) || $this->isFixedRecurring($task)))
+            ->each(function (Task $task) use ($manualBlocks, $blocks, $displaced): void {
+                $start = $this->isFixedRecurring($task) ? $task->recurrence_at : $task->pinned_start_at;
+                $end = $start->copy()->addMinutes($this->roundToSlot($task->duration_minutes));
+
+                $overlapsManual = $manualBlocks->contains(
+                    fn (array $block) => $block['start_at']->lt($end) && $start->lt($block['end_at']),
+                );
+
+                if ($overlapsManual) {
+                    $displaced->push($task);
+
+                    return;
+                }
+
                 $block = $this->isFixedRecurring($task)
                     ? $this->scheduleFixedRecurringTask($task)
                     : $this->schedulePinnedTask($task);
+                $blocks->push($this->blockArray($block));
+            });
 
-                return [
-                    'task_id' => $task->id,
-                    'start_at' => $block->start_at,
-                    'end_at' => $block->end_at,
-                ];
-            })
-            ->values();
+        return [$blocks, $displaced];
+    }
+
+    private function scheduleManualTask(Task $task): ScheduledBlock
+    {
+        $minutes = $this->roundToSlot($task->duration_minutes);
+        $start = $task->manual_start_at->copy();
+
+        return ScheduledBlock::updateOrCreate(
+            ['task_id' => $task->id],
+            [
+                'start_at' => $start,
+                'end_at' => $start->copy()->addMinutes($minutes),
+                'minutes' => $minutes,
+            ],
+        );
+    }
+
+    private function blockArray(ScheduledBlock $block): array
+    {
+        return [
+            'task_id' => $block->task_id,
+            'start_at' => $block->start_at,
+            'end_at' => $block->end_at,
+        ];
     }
 
     private function schedulePinnedTask(Task $task): ScheduledBlock

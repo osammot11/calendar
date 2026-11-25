@@ -561,6 +561,30 @@ export function usePlanner() {
         });
     }
 
+    // Salva in un'unica richiesta tutti gli spostamenti fatti in modalità
+    // riposizionamento. moves: [{ type: "task"|"busy", id, start, end }].
+    async function saveReposition(moves) {
+        const toIso = (date) => new Date(date).toISOString();
+        await api("/planner-api/reposition", {
+            method: "POST",
+            body: JSON.stringify({
+                tasks: moves
+                    .filter((move) => move.type === "task")
+                    .map((move) => ({ id: move.id, start_at: toIso(move.start) })),
+                busy: moves
+                    .filter((move) => move.type === "busy")
+                    .map((move) => ({ id: move.id, start_at: toIso(move.start), end_at: toIso(move.end) })),
+            }),
+        });
+    }
+
+    async function resetManualPosition() {
+        const taskId = selectedCalendarEvent.value?.task?.id;
+        if (!taskId) return;
+        await api(`/planner-api/tasks/${taskId}/manual-position`, { method: "DELETE" });
+        closeModal();
+    }
+
     async function destroy(url) {
         if (!confirm("Confermi eliminazione?")) {
             return false;
@@ -744,6 +768,8 @@ export function usePlanner() {
         projectTaskFilter,
         recalculate,
         reschedulePastEvent,
+        resetManualPosition,
+        saveReposition,
         saveBusyBlock,
         saveCompletedDuration,
         saveOverride,

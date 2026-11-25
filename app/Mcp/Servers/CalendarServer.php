@@ -16,7 +16,7 @@ use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('Calendario lavorativo')]
 #[Version('1.1.0')]
-#[Instructions('Calendario personale in fuso Europe/Rome. Prima di creare o modificare task, usa list_projects per conoscere gli ID dei progetti. Gli appuntamenti fissati usano is_pinned e pinned_start_at. Chiedi i dati mancanti prima delle scritture. Esegui recalculate_planning solo su richiesta esplicita dell\'utente.')]
+#[Instructions('Calendario personale in fuso Europe/Rome. Prima di creare o modificare task, usa list_projects per conoscere gli ID dei progetti. Gli appuntamenti fissati usano is_pinned e pinned_start_at. Nell\'agenda is_manually_placed indica una task spostata a mano dall\'utente: ha la precedenza su tutto e non va spostata senza richiesta esplicita. Chiedi i dati mancanti prima delle scritture. Esegui recalculate_planning solo su richiesta esplicita dell\'utente.')]
 class CalendarServer extends Server
 {
     protected array $tools = [

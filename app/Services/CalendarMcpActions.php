@@ -85,6 +85,7 @@ class CalendarMcpActions
                 'project' => $block->task->project->name,
                 'status' => $block->task->status,
                 'is_pinned' => $block->task->is_pinned,
+                'is_manually_placed' => $block->task->manual_start_at !== null,
                 'start_at' => $block->start_at->toIso8601String(),
                 'end_at' => $block->end_at->toIso8601String(),
             ]);

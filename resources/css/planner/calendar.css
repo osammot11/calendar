@@ -68,3 +68,13 @@
 .fc .fc-daygrid-event .calendar-event-project { display: none; }
 .fc .fc-daygrid-event-dot { display: none; }
 .fc .fc-daygrid-more-link { font-size: 12px; color: var(--md-on-surface-variant); }
+
+/* Modalità riposizionamento */
+.calendar-panel.is-repositioning { box-shadow: 0 0 0 2px var(--accent-now); }
+.reposition-bar { gap: 6px; flex-wrap: nowrap; }
+.reposition-hint { display: inline-flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: 6px; margin-right: 6px; color: var(--accent-now); font-size: 14px; font-weight: 500; }
+.is-repositioning .fc-event:not(.event-locked) { cursor: grab; }
+.is-repositioning .fc-event.fc-event-dragging { cursor: grabbing; }
+.is-repositioning .fc-event:not(.event-locked) .calendar-event-content { box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--accent-now) 55%, transparent); }
+.is-repositioning .fc-event.event-locked { cursor: not-allowed; opacity: .55; }
+.manual-position-note .button { justify-self: start; min-height: 32px; padding-inline: 0; }

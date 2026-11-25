@@ -227,6 +227,62 @@ class PlannerController extends Controller
         return $this->bootstrap();
     }
 
+    /**
+     * Salva in un colpo solo le posizioni scelte trascinando gli eventi in
+     * modalita riposizionamento, poi ripianifica tutto il resto attorno.
+     */
+    public function reposition(Request $request): JsonResponse
+    {
+        $earliest = now()->subMinutes(5);
+        $input = $request->validate([
+            'tasks' => ['array'],
+            'tasks.*.id' => ['required', 'integer', 'distinct', Rule::exists('tasks', 'id')->where('status', 'open')],
+            'tasks.*.start_at' => ['required', 'date', 'after_or_equal:'.$earliest->toIso8601String()],
+            'busy' => ['array'],
+            'busy.*.id' => ['required', 'integer', 'distinct', Rule::exists('busy_blocks', 'id')],
+            'busy.*.start_at' => ['required', 'date', 'after_or_equal:'.$earliest->toIso8601String()],
+            'busy.*.end_at' => ['required', 'date'],
+        ], [
+            'tasks.*.start_at.after_or_equal' => 'Non puoi spostare una task nel passato.',
+            'busy.*.start_at.after_or_equal' => 'Non puoi spostare un blocco occupato nel passato.',
+            'tasks.*.id.exists' => 'Una delle task spostate non e piu aperta.',
+        ]);
+
+        DB::transaction(function () use ($input): void {
+            foreach ($input['tasks'] ?? [] as $move) {
+                $task = Task::query()->findOrFail($move['id']);
+                $start = Carbon::parse($move['start_at'])->setTimezone(config('app.timezone'))->second(0);
+                $attributes = ['manual_start_at' => $start];
+                if ($task->is_pinned) {
+                    // Resta un appuntamento fissato, ma al nuovo orario.
+                    $attributes['pinned_start_at'] = $start;
+                }
+                $task->update($attributes);
+            }
+
+            foreach ($input['busy'] ?? [] as $move) {
+                $start = Carbon::parse($move['start_at'])->setTimezone(config('app.timezone'))->second(0);
+                $end = Carbon::parse($move['end_at'])->setTimezone(config('app.timezone'))->second(0);
+                if ($end->lte($start)) {
+                    throw ValidationException::withMessages(['busy' => 'Un blocco occupato deve finire dopo l\'inizio.']);
+                }
+                BusyBlock::query()->findOrFail($move['id'])->update(['start_at' => $start, 'end_at' => $end]);
+            }
+
+            $this->scheduler->recalculate();
+        });
+
+        return $this->bootstrap();
+    }
+
+    public function resetManualPosition(Task $task): JsonResponse
+    {
+        $task->update(['manual_start_at' => null]);
+        $this->scheduler->recalculate();
+
+        return $this->bootstrap();
+    }
+
     public function deleteBusyBlock(BusyBlock $busyBlock): JsonResponse
     {
         $busyBlock->delete();
@@ -496,6 +552,7 @@ class PlannerController extends Controller
                     'priority' => $block->task->priority,
                     'max' => $block->task->is_max_priority,
                     'pinned' => $block->task->is_pinned,
+                    'manual' => $block->task->manual_start_at !== null,
                     'pinned_start_at' => $block->task->pinned_start_at?->toIso8601String(),
                     'description' => $block->task->description,
                     'duration_minutes' => $block->task->duration_minutes,

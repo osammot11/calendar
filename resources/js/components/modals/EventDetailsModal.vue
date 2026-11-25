@@ -12,6 +12,7 @@ const {
     formatDate,
     formatDateTime,
     projectFor,
+    resetManualPosition,
     saveCompletedDuration,
     saving,
     selectedCalendarEvent,
@@ -215,6 +216,11 @@ const recurrenceStartTime = computed(() => {
                                 : "No"
                         }}
                     </strong>
+                </div>
+                <div v-if="selectedCalendarEvent.task.manual_start_at" class="detail-wide manual-position-note">
+                    <span>Posizione</span>
+                    <strong>Spostata a mano: resta qui e ha la precedenza su tutto.</strong>
+                    <button class="button text" type="button" :disabled="saving" @click="resetManualPosition">Rimetti in automatico</button>
                 </div>
                 <div v-if="selectedCalendarEvent.task.earliest_start_date">
                     <span>Pianificabile dal</span>
