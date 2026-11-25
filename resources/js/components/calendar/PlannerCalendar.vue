@@ -46,8 +46,9 @@ const pendingMoves = new Map();
 const pendingCount = ref(0);
 
 function isMovable(event) {
+    // Anche gli eventi passati e il passato stesso sono ammessi:
+    // servono a registrare cose già fatte. Le task completate restano ferme.
     const props = event.extendedProps || {};
-    if (new Date(event.end) <= new Date()) return false;
     return props.type === "busy" || (props.type === "task" && props.status === "open");
 }
 
@@ -134,7 +135,6 @@ const calendarOptions = computed(() => ({
     eventDurationEditable: false,
     snapDuration: "00:15:00",
     eventLongPressDelay: 300,
-    eventAllow: (dropInfo) => dropInfo.start >= new Date(),
     eventDrop: recordMove,
     allDaySlot: false,
     height: "max(480px, calc(100dvh - 120px))",

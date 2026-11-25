@@ -142,15 +142,66 @@ class RepositionTest extends TestCase
         $this->assertSame('10:00', $this->blockOf($task)->start_at->format('H:i'));
     }
 
-    public function test_tasks_cannot_be_moved_into_the_past(): void
+    public function test_tasks_can_be_moved_into_the_past_to_log_work_already_done(): void
     {
-        $task = $this->task();
+        $task = $this->task(['title' => 'Fatta ieri']);
 
         $this->postJson('/planner-api/reposition', [
             'tasks' => [['id' => $task->id, 'start_at' => '2026-06-21T10:00:00+02:00']],
-        ])->assertUnprocessable();
+        ])->assertOk();
 
-        $this->assertNull($task->fresh()->manual_start_at);
+        $this->assertSame('2026-06-21 10:00', $this->blockOf($task)->start_at->format('Y-m-d H:i'));
+
+        // Il ricalcolo la conserva nel passato, in attesa di essere completata.
+        $this->postJson('/planner-api/recalculate')->assertOk();
+        $this->assertSame(1, ScheduledBlock::query()->where('task_id', $task->id)->count());
+        $this->assertSame('2026-06-21 10:00', $this->blockOf($task)->start_at->format('Y-m-d H:i'));
+    }
+
+    public function test_a_task_already_in_the_past_can_be_moved_again(): void
+    {
+        $task = $this->task(['manual_start_at' => Carbon::parse('2026-06-21 10:00')]);
+        ScheduledBlock::create([
+            'task_id' => $task->id,
+            'start_at' => Carbon::parse('2026-06-21 10:00'),
+            'end_at' => Carbon::parse('2026-06-21 11:00'),
+            'minutes' => 60,
+        ]);
+
+        $this->postJson('/planner-api/reposition', [
+            'tasks' => [['id' => $task->id, 'start_at' => '2026-06-20T15:00:00+02:00']],
+        ])->assertOk();
+
+        $this->assertSame(1, ScheduledBlock::query()->where('task_id', $task->id)->count());
+        $this->assertSame('2026-06-20 15:00', $this->blockOf($task)->start_at->format('Y-m-d H:i'));
+    }
+
+    public function test_busy_blocks_can_be_moved_into_the_past(): void
+    {
+        $busy = BusyBlock::create([
+            'title' => 'Telefonata',
+            'start_at' => Carbon::parse('2026-06-22 14:00'),
+            'end_at' => Carbon::parse('2026-06-22 15:00'),
+        ]);
+
+        $this->postJson('/planner-api/reposition', [
+            'busy' => [['id' => $busy->id, 'start_at' => '2026-06-19T09:00:00+02:00', 'end_at' => '2026-06-19T10:00:00+02:00']],
+        ])->assertOk();
+
+        $this->assertSame('2026-06-19 09:00', $busy->fresh()->start_at->format('Y-m-d H:i'));
+    }
+
+    public function test_reset_brings_a_task_moved_into_the_past_back_to_the_future(): void
+    {
+        $task = $this->task();
+        $this->postJson('/planner-api/reposition', [
+            'tasks' => [['id' => $task->id, 'start_at' => '2026-06-21T10:00:00+02:00']],
+        ])->assertOk();
+
+        $this->deleteJson("/planner-api/tasks/{$task->id}/manual-position")->assertOk();
+
+        $this->assertSame(1, ScheduledBlock::query()->where('task_id', $task->id)->count());
+        $this->assertSame('2026-06-22 09:00', $this->blockOf($task)->start_at->format('Y-m-d H:i'));
     }
 
     public function test_pinning_from_the_task_form_clears_the_manual_position(): void

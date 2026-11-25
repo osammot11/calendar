@@ -233,18 +233,16 @@ class PlannerController extends Controller
      */
     public function reposition(Request $request): JsonResponse
     {
-        $earliest = now()->subMinutes(5);
+        // Anche il passato e ammesso: serve a registrare cose gia fatte.
         $input = $request->validate([
             'tasks' => ['array'],
             'tasks.*.id' => ['required', 'integer', 'distinct', Rule::exists('tasks', 'id')->where('status', 'open')],
-            'tasks.*.start_at' => ['required', 'date', 'after_or_equal:'.$earliest->toIso8601String()],
+            'tasks.*.start_at' => ['required', 'date'],
             'busy' => ['array'],
             'busy.*.id' => ['required', 'integer', 'distinct', Rule::exists('busy_blocks', 'id')],
-            'busy.*.start_at' => ['required', 'date', 'after_or_equal:'.$earliest->toIso8601String()],
+            'busy.*.start_at' => ['required', 'date'],
             'busy.*.end_at' => ['required', 'date'],
         ], [
-            'tasks.*.start_at.after_or_equal' => 'Non puoi spostare una task nel passato.',
-            'busy.*.start_at.after_or_equal' => 'Non puoi spostare un blocco occupato nel passato.',
             'tasks.*.id.exists' => 'Una delle task spostate non e piu aperta.',
         ]);
 
@@ -258,6 +256,9 @@ class PlannerController extends Controller
                     $attributes['pinned_start_at'] = $start;
                 }
                 $task->update($attributes);
+                // Un blocco gia passato verrebbe conservato dal ricalcolo come
+                // "da risolvere": lo togliamo, cosi conta solo la nuova posizione.
+                ScheduledBlock::query()->where('task_id', $task->id)->delete();
             }
 
             foreach ($input['busy'] ?? [] as $move) {
@@ -277,8 +278,12 @@ class PlannerController extends Controller
 
     public function resetManualPosition(Task $task): JsonResponse
     {
-        $task->update(['manual_start_at' => null]);
-        $this->scheduler->recalculate();
+        DB::transaction(function () use ($task): void {
+            $task->update(['manual_start_at' => null]);
+            // Se era stata spostata nel passato, torna a essere pianificata da adesso.
+            ScheduledBlock::query()->where('task_id', $task->id)->delete();
+            $this->scheduler->recalculate();
+        });
 
         return $this->bootstrap();
     }
